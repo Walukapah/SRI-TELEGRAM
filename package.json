@@ -1,0 +1,45 @@
+{
+  "name": "SRI-BOT",
+  "version": "1.0.0",
+  "description": "A WhatsApp bot created using Node.js",
+  "main": "index.js",
+  "engines" : { 
+    "npm" : ">=9.7.2",
+    "node" : ">=20.0.0"
+    },
+  "scripts": {
+    "start": "pm2 start index.js --deep-monitoring --attach --name wabot",
+    "stop": "pm2 stop sribot",
+    "restart": "pm2 restart sribot"
+  },
+  "author": "WalukaPahan",
+  "license": "GPL-3.0 license",
+  "dependencies": {
+    "@whiskeysockets/baileys": "github:ds6/bails",
+    "@adiwajshing/keyed-db": "^0.2.4",
+    "@bochilteam/scraper": "^4.2.4",
+    "@brandond/findthelyrics": "^2.0.5",
+    "@green-code/music-track-data": "^2.0.3",
+    "@nechlophomeriaa/spotifydl": "1.0.11",
+    "@sasmeee/igdl":"^1.0.0",
+    "@shineiichijo/marika": "^2.0.6",
+    "@vitalets/google-translate-api": "^8.0.0",
+    "@xct007/frieren-scraper": "^0.0.2",
+    "@EdderBot02/ytdlf":"github:EdderBot02/ytdlf",
+    "maher-zubair-baileys": "^6.6.5",
+    "pino": "^7.0.5",
+    "pm2": "^5.2.0",
+    "util": "^0.12.4",
+    "express": "latest",
+    "axios": "^1.2.5",
+    "file_size_url": "^1.0.4",
+    "fs-extra": "^11.1.0",
+    "path": "^0.12.7",
+    "node-fetch": "^2.6.1",
+    "megajs": "^1.1.0",
+    "vm": "^0.1.0",
+    "qrcode-terminal": "^0.12.0",
+    "yt-search": "2.12.1",
+    "api-dylux": "1.8.5"
+  }
+}
