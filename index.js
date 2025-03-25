@@ -149,9 +149,11 @@ conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
 //=====================================================================================================
         
 //==================work-type=====================================================================================================================================
-if(!isOwner && config.MODE === "private") return
-if(!isOwner && isGroup && config.MODE === "inbox") return
-if(!isOwner && !isGroup && config.MODE === "groups") return
+
+//if(!isOwner && config.MODE === "private") return
+//if(!isOwner && isGroup && config.MODE === "inbox") return
+//if(!isOwner && !isGroup && config.MODE === "groups") return
+
 //==============================================================================================================================================================
         
 const events = require('./command')
