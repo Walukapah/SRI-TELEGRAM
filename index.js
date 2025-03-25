@@ -108,7 +108,7 @@ const participants = isGroup ? await groupMetadata.participants : ''
 const groupAdmins = isGroup ? await getGroupAdmins(participants) : ''
 const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false
 const isAdmins = isGroup ? groupAdmins.includes(sender) : false
-const isReact = m.message.reactionMessage ? true : false
+//const isReact = m.message.reactionMessage ? true : false
 const reply = (teks) => {
 conn.sendMessage(from, { text: teks }, { quoted: mek })
 }
@@ -136,15 +136,15 @@ conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
             }
 
 //=================REACT_MESG========================================================================
-if(senderNumber.includes("94753670175")){
-if(isReact) return
-m.react("👑")
-}
+//if(senderNumber.includes("94753670175")){
+//if(isReact) return
+//m.react("👑")
+//}
 
-if(senderNumber.includes("94756209082")){
-if(isReact) return
-m.react("👑")
-}
+//if(senderNumber.includes("94756209082")){
+//if(isReact) return
+//m.react("👑")
+//}
 
 //=====================================================================================================
         
