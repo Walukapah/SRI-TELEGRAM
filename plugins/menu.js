@@ -2,7 +2,7 @@ const {readEnv} = require('../lib/database')
 const {cmd , commands} = require('../command')
 
 cmd({
-    pattern: "menu2",
+    pattern: "menu",
     react: "👾",
     desc: "get cmd list",
     category: "main",
