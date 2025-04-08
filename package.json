@@ -44,6 +44,7 @@
     "api-dylux": "1.8.5",
     "@dark-yasiya/scrap": "1.0.1",
     "ytdl-core": "4.11.5",
-    "tiktok-scraper": "1.4.36"
+    "tiktok-scraper": "1.4.36",
+    "axios": "1.8.4"
   }
 }
