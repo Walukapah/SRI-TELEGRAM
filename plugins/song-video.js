@@ -5,9 +5,14 @@ const yts = require('yt-search');
 async function downloadMedia(type, q, reply, conn, from, mek) {
   if (!q) return reply("Please give URL / title 📎");
   
-  const search = await yts(q);
-  const data = search.videos[0];
-  const url = data.url;
+const search = await yts(q);
+const data = search.videos[0];
+
+if (!data || !data.url) {
+  return reply("Couldn't find a valid YouTube video.");
+}
+
+const url = data.url;
   
   let desc = `
  ⚡ *SRIBOT ${type.toUpperCase()} DOWNLOADER* ⚡
