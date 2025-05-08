@@ -25,9 +25,9 @@ async function downloadMedia(type, q, reply, conn, from, mek) {
   
   let down;
   if (type === 'song') {
-    down = await fg.yta('url');
+    down = await fg.yta(url);
   } else {
-    down = await fg.ytv('url');
+    down = await fg.ytv(url);
   }
   const downloadUrl = down.dl_url;
   
@@ -41,6 +41,7 @@ async function downloadMedia(type, q, reply, conn, from, mek) {
 cmd({
   pattern: "song",
   desc: "Download the song",
+  react: "🎵",
   category: "download",
   filename: __filename
 }, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
@@ -55,6 +56,7 @@ cmd({
 cmd({
   pattern: "video",
   desc: "Download the video",
+  react: "🎬",
   category: "download",
   filename: __filename
 }, async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
