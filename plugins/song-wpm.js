@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = {
-    name: "song",
+    name: "song5",
     description: "Download songs or videos from YouTube",
     category: "media",
     usage: "song <name> or song <url>",
