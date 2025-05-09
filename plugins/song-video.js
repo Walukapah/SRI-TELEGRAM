@@ -135,7 +135,7 @@ function formatTime(seconds) {
 }
 
 cmd({
-  pattern: "song5",
+  pattern: "song",
   desc: "Download the song",
   react: "🎵",
   category: "download",
@@ -150,7 +150,7 @@ cmd({
 });
 
 cmd({
-  pattern: "video5",
+  pattern: "video",
   desc: "Download the video",
   react: "🎬",
   category: "download",
