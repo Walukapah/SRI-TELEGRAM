@@ -43,6 +43,7 @@
     "fs-extra": "^11.1.0",
     "api-dylux": "1.8.5",
     "@dark-yasiya/scrap": "1.0.1",
-    "ytdl-core": "4.11.5"
+    "ytdl-core": "4.11.5",
+    "fluent-ffmpeg": "2.1.3"
   }
 }
