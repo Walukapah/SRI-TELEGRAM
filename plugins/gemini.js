@@ -5,7 +5,7 @@ const { fetchJson } = require('../lib/functions');
 cmd({
     pattern: "gemini", // Command name changed to "gemini"
     desc: "Chat with Gemini AI",
-    category: "AI",
+    category: "main",
     filename: __filename
 },
 async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
