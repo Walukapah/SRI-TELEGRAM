@@ -1,5 +1,4 @@
 const os = require('os');
-const settings = require('../settings.js');
 const config = require('../config');
 const {cmd, commands} = require('../command');
 
