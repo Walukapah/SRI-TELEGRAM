@@ -3,7 +3,7 @@ const { cmd, commands } = require('../command');
 const axios = require('axios');
 
 cmd({
-    pattern: "tiktok",
+    pattern: "tiktok2",
     desc: "Download TikTok videos via API (no watermark)",
     category: "download",
     filename: __filename
@@ -51,17 +51,19 @@ async(conn, mek, m, { from, reply }) => {
 
         // Send video with metadata and contextInfo
         await conn.sendMessage(from, {
-    video: { url: videoUrl },
-    mimetype: "video/mp4",
-    caption: caption,
-    templateButtons: [{
-        index: 1,
-        urlButton: {
-            displayText: 'Join Our Channel',
-            url: 'https://whatsapp.com/channel/0029VaAPzWX0G0XdhMbtRI2i'
-        }
-    }]
-}, { quoted: mek });
+            video: { url: videoUrl },
+            mimetype: "video/mp4",
+            caption: caption,
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363161513685998@newsletter',
+                    newsletterName: 'KnightBot MD',
+                    serverMessageId: -1
+                }
+            }
+        }, { quoted: mek });
 
     } catch (error) {
         console.error('TikTok download error:', error);
