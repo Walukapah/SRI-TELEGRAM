@@ -3,8 +3,8 @@ const { cmd, commands } = require('../command');
 const axios = require('axios');
 
 cmd({
-    pattern: "tiktok",
-    desc: "Download TikTok videos via API",
+    pattern: "tiktok2",
+    desc: "Download TikTok videos via API (no watermark)",
     category: "download",
     filename: __filename
 },
@@ -22,32 +22,47 @@ async(conn, mek, m, { from, reply }) => {
 
         await conn.sendMessage(from, { react: { text: '🔄', key: mek.key } });
 
-        const apiUrl = `https://api.dreaded.site/api/tiktok?url=${encodeURIComponent(url)}`;
+        const apiUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`;
         const { data } = await axios.get(apiUrl);
 
         // Check if response is valid and contains video URL
-        if (!data || !data.tiktok || !data.tiktok.video) {
+        if (!data || !data.video || !data.video.noWatermark) {
             return reply("Failed to get video URL from API response");
         }
 
-        const videoUrl = data.tiktok.video;
-        const description = data.tiktok.description || "No description";
-        const author = data.tiktok.author?.nickname || "Unknown author";
-        const likes = data.tiktok.statistics?.likeCount || "N/A";
+        const videoUrl = data.video.noWatermark;
+        const title = data.title || "No title";
+        const author = data.author?.name || "Unknown author";
+        const likes = data.stats?.likeCount || "N/A";
+        const comments = data.stats?.commentCount || "N/A";
+        const shares = data.stats?.shareCount || "N/A";
+        const duration = data.video?.durationFormatted || "N/A";
         
-        // Create caption with video info
+        // Create detailed caption
         const caption = `
-📝 *Description:* ${description}
-👤 *Author:* ${author}
+🎬 *Title:* ${title}
+👤 *Author:* @${author}
 ❤️ *Likes:* ${likes}
+💬 *Comments:* ${comments}
+↩️ *Shares:* ${shares}
+⏱️ *Duration:* ${duration}
 
 *Downloaded by Sri-Bot*`;
 
-        // Send video with metadata
+        // Send video with metadata and contextInfo
         await conn.sendMessage(from, {
             video: { url: videoUrl },
             mimetype: "video/mp4",
-            caption: caption
+            caption: caption,
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '0029VaAPzWX0G0XdhMbtRI2i@channel', // ඔබේ WhatsApp Channel ID
+                    newsletterName: 'Sri-Bot Updates', // ඔබේ Channel නම
+                    serverMessageId: -1
+                }
+            }
         }, { quoted: mek });
 
     } catch (error) {
