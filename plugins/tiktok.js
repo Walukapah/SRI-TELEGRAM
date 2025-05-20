@@ -41,7 +41,7 @@ async(conn, mek, m, { from, reply }) => {
             video: { url: videoUrl },
             mimetype: "video/mp4",
             caption: `🎬 *${author}*\n📝 ${description}\n\n𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗗 𝗕𝗬 𝗦𝗥𝗜-𝗕𝗢𝗧`
-        }, { quoted: mek });
+        }, { quoted: mek, uploadTimeoutMs: 60000 });
 
     } catch (error) {
         console.error('TikTok download error:', error);
