@@ -10,7 +10,6 @@ cmd({
 },
 async(conn, mek, m, { from, reply }) => {
     try {
-        // Extract text from the message
         const text = m?.message?.conversation || m?.message?.extendedTextMessage?.text || '';
         const url = text.split(' ').slice(1).join(' ').trim();
         
@@ -26,18 +25,26 @@ async(conn, mek, m, { from, reply }) => {
         const apiUrl = `https://api.dreaded.site/api/tiktok?url=${encodeURIComponent(url)}`;
         const { data } = await axios.get(apiUrl);
 
-        if (!data?.status === 200 || !data?.tiktok?.video) {
-            return reply("Failed to download video. The API may be down or the link is invalid");
+        // Debug: Log the API response
+        console.log("API Response:", JSON.stringify(data, null, 2));
+
+        if (!data || !data.success || !data.tiktok || !data.tiktok.video) {
+            console.error('Invalid API response structure');
+            return reply("Failed to download video. Invalid API response");
         }
 
+        const videoUrl = data.tiktok.video;
+        const description = data.tiktok.description || "No description";
+        const author = data.tiktok.author?.nickname || "Unknown author";
+
         await conn.sendMessage(from, {
-            video: { url: data.tiktok.video },
+            video: { url: videoUrl },
             mimetype: "video/mp4",
-            caption: "𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗗 𝗕𝗬 𝗦𝗥𝗜-𝗕𝗢𝗧"
+            caption: `🎬 *${author}*\n📝 ${description}\n\n𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗘𝗗 𝗕𝗬 𝗦𝗥𝗜-𝗕𝗢𝗧`
         }, { quoted: mek });
 
     } catch (error) {
         console.error('TikTok download error:', error);
-        reply("Failed to download. Please try another link");
+        reply("Failed to download. Error: " + error.message);
     }
 });
