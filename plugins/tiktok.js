@@ -51,19 +51,17 @@ async(conn, mek, m, { from, reply }) => {
 
         // Send video with metadata and contextInfo
         await conn.sendMessage(from, {
-            video: { url: videoUrl },
-            mimetype: "video/mp4",
-            caption: caption,
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '0029VaAPzWX0G0XdhMbtRI2i@channel', // ඔබේ WhatsApp Channel ID
-                    newsletterName: 'Sri-Bot Updates', // ඔබේ Channel නම
-                    serverMessageId: -1
-                }
-            }
-        }, { quoted: mek });
+    video: { url: videoUrl },
+    mimetype: "video/mp4",
+    caption: caption,
+    templateButtons: [{
+        index: 1,
+        urlButton: {
+            displayText: 'Join Our Channel',
+            url: 'https://whatsapp.com/channel/0029VaAPzWX0G0XdhMbtRI2i'
+        }
+    }]
+}, { quoted: mek });
 
     } catch (error) {
         console.error('TikTok download error:', error);
