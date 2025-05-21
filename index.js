@@ -22,6 +22,7 @@ const prefix = '.'
 const ownerNumber = ['94753670175']
 
 //===================SESSION-AUTH============================
+/**
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
 if(!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
 const sessdata = config.SESSION_ID
@@ -31,6 +32,24 @@ if(err) throw err
 fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, () => {
 console.log("Session downloaded ✅")
 })})}
+**/
+if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
+    if(!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
+    
+    const sessdata = config.SESSION_ID;
+    
+    try {
+        // The session data appears to be base64 encoded JSON
+        const decodedSession = Buffer.from(sessdata, 'base64').toString('utf-8');
+        
+        // Write the decoded session data to creds.json
+        fs.writeFileSync(__dirname + '/auth_info_baileys/creds.json', decodedSession);
+        console.log("Session created successfully ✅");
+    } catch(err) {
+        console.error("Error processing session:", err);
+        throw err;
+    }
+}
 
 const express = require("express");
 const app = express();
