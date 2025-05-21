@@ -3,7 +3,7 @@ const { cmd, commands } = require('../command');
 const axios = require('axios');
 
 cmd({
-    pattern: "tiktok2",
+    pattern: "tiktok",
     desc: "Download TikTok videos via API (no watermark)",
     category: "download",
     filename: __filename
