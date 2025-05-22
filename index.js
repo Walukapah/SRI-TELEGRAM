@@ -196,7 +196,6 @@ conn.ev.on('messages.upsert', async (mek) => {
     } catch (error) {
         console.error('ERROR IN MESSAGE LOGGING:', error);
     }
-});
     
 const m = sms(conn, mek)
 const type = getContentType(mek.message)
@@ -310,7 +309,7 @@ command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, i
 }});
 //============================================================================ 
 
-});
+})
 }
 app.get("/", (req, res) => {
 res.send("hey, bot started✅");
