@@ -44,12 +44,12 @@ const port = process.env.PORT || 8000;
 //=============================================
 
 async function connectToWA() {
-  console.log("Connecting wa bot �...");
+  console.log("Connecting wa bot ⚡...");
   const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/')
   var { version } = await fetchLatestBaileysVersion()
 
   const conn = makeWASocket({
-    logger: P({ level: 'silent' }),
+    logger: P({ level: 'debug' }),//silent
     printQRInTerminal: false,
     browser: Browsers.macOS("Firefox"),
     syncFullHistory: true,
