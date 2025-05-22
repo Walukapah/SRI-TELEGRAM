@@ -4,7 +4,7 @@ const {cmd, commands} = require('../command')
 cmd({
     pattern: "msginfo",
     desc: "Extract detailed message information including newsletter detection",
-    category: "utility",
+    category: "main",//utility
     filename: __filename
 },
 async(conn, mek, m, {from, quoted, reply}) => {
@@ -12,7 +12,7 @@ async(conn, mek, m, {from, quoted, reply}) => {
         const targetMsg = quoted || m;
         
         if (!targetMsg.message) {
-            return reply("❗ කරුණාකර message එකක් reply කරන්න");
+            return reply("❗ Please reply to a message");
         }
 
         // Enhanced newsletter detection
@@ -41,6 +41,18 @@ async(conn, mek, m, {from, quoted, reply}) => {
         const newsletterInfo = detectNewsletter(targetMsg);
         const msgType = Object.keys(targetMsg.message)[0];
         
+        // Format the raw message for display
+        const rawMessageStr = JSON.stringify(targetMsg, null, 2)
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '    ')
+            .replace(/\\"/g, '"');
+        
+        // Console output with full details
+        console.log('\n=== FULL MESSAGE DETAILS ===');
+        console.log(rawMessageStr);
+        console.log('===========================\n');
+        
+        // Chat response
         let response = `📌 *Message Analysis*\n\n`;
         response += `🔹 *Message Type:* ${msgType}\n`;
         
@@ -48,15 +60,14 @@ async(conn, mek, m, {from, quoted, reply}) => {
             response += `✅ *Newsletter Detected!*\n`;
             response += `📛 Name: ${newsletterInfo.newsletterName}\n`;
             response += `🔢 JID: ${newsletterInfo.newsletterJid}\n\n`;
-            response += `ℹ️ මෙය නිව්ස්ලෙටර් එකකින් එවන ලද පණිවිඩයකි`;
+            response += `ℹ️ This is a message forwarded from a newsletter`;
         } else {
             response += `❌ *Not a Newsletter Message*\n\n`;
-            response += `ℹ️ මෙම පණිවිඩය නිව්ස්ලෙටර් එකකින් එවන ලද්දක් නොවේ\n`;
-            response += `හේතුව: පණිවිඩයේ newsletter JID හෝ නිව්ස්ලෙටර් ලක්ෂණ හමු නොවීය`;
+            response += `ℹ️ This message is not from a newsletter\n`;
+            response += `Reason: No newsletter JID or newsletter features found`;
         }
 
-        // Additional debug info
-        console.log("Raw Message:", JSON.stringify(targetMsg, null, 2));
+        response += `\n\n🔍 *Raw data has been logged to console*`;
         
         await conn.sendMessage(from, { 
             text: response,
@@ -65,6 +76,6 @@ async(conn, mek, m, {from, quoted, reply}) => {
 
     } catch(e) {
         console.error('Error:', e);
-        reply(`❌ දෝෂයක්: ${e.message}`);
+        reply(`❌ Error: ${e.message}`);
     }
 });
