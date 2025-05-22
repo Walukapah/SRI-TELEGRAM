@@ -49,7 +49,7 @@ async function connectToWA() {
   var { version } = await fetchLatestBaileysVersion()
 
   const conn = makeWASocket({
-    logger: P({ level: 'silent' }),//silent
+    logger: P({ level: 'silent' }),
     printQRInTerminal: false,
     browser: Browsers.macOS("Firefox"),
     syncFullHistory: true,
@@ -67,7 +67,7 @@ async function connectToWA() {
         }, 5000)
       }
     } else if (connection === 'open') {
-      console.log('😼 Installing... ')
+      console.log('😼 Installing plugins... ')
       const path = require('path');
       fs.readdirSync("./plugins/").forEach((plugin) => {
         if (path.extname(plugin).toLowerCase() == ".js") {
@@ -81,122 +81,121 @@ async function connectToWA() {
   
   conn.ev.on('creds.update', saveCreds)
 
-// =============== ENHANCED MESSAGE LOGGING ===============
-conn.ev.on('messages.upsert', async(mek) => {
+  // =============== ENHANCED MESSAGE LOGGING ===============
+  conn.ev.on('messages.upsert', async(mek) => {
     try {
-        // Create timestamp with Sri Lanka timezone
-        const timestamp = new Date().toLocaleString('en-US', { 
-            timeZone: 'Asia/Colombo',
-            hour12: false,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
+      // Create timestamp with Sri Lanka timezone
+      const timestamp = new Date().toLocaleString('en-US', { 
+          timeZone: 'Asia/Colombo',
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+      });
 
-        // Message separator
-        console.log('\n' + '='.repeat(60));
-        console.log(`📩 [${timestamp}] NEW MESSAGE RECEIVED`);
-        
-        const message = mek.messages[0];
-        if (!message) return;
-
-        // Sender information
-        const senderJid = message.key.remoteJid;
-        const isGroup = senderJid.endsWith('@g.us');
-        const pushName = message.pushName || 'Unknown';
-        
-        // Basic message info
-        console.log(`🔹 From: ${isGroup ? 'Group' : 'Private'} - ${senderJid}`);
-        console.log(`🔹 Sender: ${pushName}`);
-        console.log(`🔹 Message ID: ${message.key.id}`);
-        
-        // Message type detection
-        const messageType = getContentType(message.message);
-        let content = '';
-        let additionalInfo = '';
-
-        // Content extraction based on message type
-        switch (messageType) {
-            case 'conversation':
-                content = message.message.conversation;
-                break;
-            case 'extendedTextMessage':
-                content = message.message.extendedTextMessage.text;
-                if (message.message.extendedTextMessage.contextInfo?.quotedMessage) {
-                    additionalInfo += '🔹 Quoted Message: Yes\n';
-                }
-                break;
-            case 'imageMessage':
-                content = message.message.imageMessage.caption || '[Image without caption]';
-                additionalInfo += `🔹 Image Dimensions: ${message.message.imageMessage.width}x${message.message.imageMessage.height}\n`;
-                additionalInfo += `🔹 Image Size: ${(message.message.imageMessage.fileLength / 1024).toFixed(2)} KB\n`;
-                break;
-            case 'videoMessage':
-                content = message.message.videoMessage.caption || '[Video without caption]';
-                additionalInfo += `🔹 Video Duration: ${message.message.videoMessage.seconds}s\n`;
-                additionalInfo += `🔹 Video Size: ${(message.message.videoMessage.fileLength / (1024 * 1024)).toFixed(2)} MB\n`;
-                break;
-            case 'audioMessage':
-                content = '[Audio message]';
-                additionalInfo += `🔹 Audio Duration: ${message.message.audioMessage.seconds}s\n`;
-                additionalInfo += `🔹 Audio Type: ${message.message.audioMessage.mimetype || 'Unknown'}\n`;
-                break;
-            case 'stickerMessage':
-                content = '[Sticker]';
-                additionalInfo += `🔹 Sticker Emoji: ${message.message.stickerMessage.emoji || 'None'}\n`;
-                additionalInfo += `🔹 Sticker Size: ${(message.message.stickerMessage.fileLength / 1024).toFixed(2)} KB\n`;
-                break;
-            case 'locationMessage':
-                const loc = message.message.locationMessage;
-                content = `📍 Location: ${loc.degreesLatitude}, ${loc.degreesLongitude}`;
-                additionalInfo += `🔹 Location Name: ${loc.name || 'Not specified'}\n`;
-                break;
-            case 'buttonsResponseMessage':
-                content = `🛑 Selected Button: ${message.message.buttonsResponseMessage.selectedButtonId}`;
-                break;
-            case 'reactionMessage':
-                content = `Reacted with: ${message.message.reactionMessage.text}`;
-                additionalInfo += `🔹 To Message ID: ${message.message.reactionMessage.key.id}\n`;
-                break;
-            default:
-                content = `[Unhandled message type: ${messageType}]`;
-        }
-
-        // Display message content (trimmed if too long)
-        console.log(`🔹 Message Type: ${messageType}`);
-        if (additionalInfo) console.log(additionalInfo.trim());
-        console.log(`🔹 Content Preview: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
-        
-        // Message status
-        if (message.key.fromMe) {
-            console.log('🔹 Status: Sent by this bot');
-        }
-
-        // Group specific info
-        if (isGroup) {
-            const groupMetadata = await conn.groupMetadata(senderJid).catch(e => {});
-            if (groupMetadata) {
-                console.log(`🔹 Group Name: ${groupMetadata.subject}`);
-                console.log(`🔹 Participants: ${groupMetadata.participants.length}`);
-            }
-        }
-
-        // End of message log
-        console.log('='.repeat(60) + '\n');
-
-        // Original message processing continues...
-        message.message = (messageType === 'ephemeralMessage') 
-            ? message.message.ephemeralMessage.message 
-            : message.message;
-
-        if (message.key && message.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true") {
-            await conn.readMessages([message.key]);
-        }
-
+      // Message separator
+      console.log('\n' + '='.repeat(60));
+      console.log(`📩 [${timestamp}] NEW MESSAGE RECEIVED`);
       
+      const message = mek.messages[0];
+      if (!message) return;
+
+      // Sender information
+      const senderJid = message.key.remoteJid;
+      const isGroup = senderJid.endsWith('@g.us');
+      const pushName = message.pushName || 'Unknown';
+      
+      // Basic message info
+      console.log(`🔹 From: ${isGroup ? 'Group' : 'Private'} - ${senderJid}`);
+      console.log(`🔹 Sender: ${pushName}`);
+      console.log(`🔹 Message ID: ${message.key.id}`);
+      
+      // Message type detection
+      const messageType = getContentType(message.message);
+      let content = '';
+      let additionalInfo = '';
+
+      // Content extraction based on message type
+      switch (messageType) {
+          case 'conversation':
+              content = message.message.conversation;
+              break;
+          case 'extendedTextMessage':
+              content = message.message.extendedTextMessage.text;
+              if (message.message.extendedTextMessage.contextInfo?.quotedMessage) {
+                  additionalInfo += '🔹 Quoted Message: Yes\n';
+              }
+              break;
+          case 'imageMessage':
+              content = message.message.imageMessage.caption || '[Image without caption]';
+              additionalInfo += `🔹 Image Dimensions: ${message.message.imageMessage.width}x${message.message.imageMessage.height}\n`;
+              additionalInfo += `🔹 Image Size: ${(message.message.imageMessage.fileLength / 1024).toFixed(2)} KB\n`;
+              break;
+          case 'videoMessage':
+              content = message.message.videoMessage.caption || '[Video without caption]';
+              additionalInfo += `🔹 Video Duration: ${message.message.videoMessage.seconds}s\n`;
+              additionalInfo += `🔹 Video Size: ${(message.message.videoMessage.fileLength / (1024 * 1024)).toFixed(2)} MB\n`;
+              break;
+          case 'audioMessage':
+              content = '[Audio message]';
+              additionalInfo += `🔹 Audio Duration: ${message.message.audioMessage.seconds}s\n`;
+              additionalInfo += `🔹 Audio Type: ${message.message.audioMessage.mimetype || 'Unknown'}\n`;
+              break;
+          case 'stickerMessage':
+              content = '[Sticker]';
+              additionalInfo += `🔹 Sticker Emoji: ${message.message.stickerMessage.emoji || 'None'}\n`;
+              additionalInfo += `🔹 Sticker Size: ${(message.message.stickerMessage.fileLength / 1024).toFixed(2)} KB\n`;
+              break;
+          case 'locationMessage':
+              const loc = message.message.locationMessage;
+              content = `📍 Location: ${loc.degreesLatitude}, ${loc.degreesLongitude}`;
+              additionalInfo += `🔹 Location Name: ${loc.name || 'Not specified'}\n`;
+              break;
+          case 'buttonsResponseMessage':
+              content = `🛑 Selected Button: ${message.message.buttonsResponseMessage.selectedButtonId}`;
+              break;
+          case 'reactionMessage':
+              content = `Reacted with: ${message.message.reactionMessage.text}`;
+              additionalInfo += `🔹 To Message ID: ${message.message.reactionMessage.key.id}\n`;
+              break;
+          default:
+              content = `[Unhandled message type: ${messageType}]`;
+      }
+
+      // Display message content (trimmed if too long)
+      console.log(`🔹 Message Type: ${messageType}`);
+      if (additionalInfo) console.log(additionalInfo.trim());
+      console.log(`🔹 Content Preview: ${content.substring(0, 150)}${content.length > 150 ? '...' : ''}`);
+      
+      // Message status
+      if (message.key.fromMe) {
+          console.log('🔹 Status: Sent by this bot');
+      }
+
+      // Group specific info
+      if (isGroup) {
+          const groupMetadata = await conn.groupMetadata(senderJid).catch(e => {});
+          if (groupMetadata) {
+              console.log(`🔹 Group Name: ${groupMetadata.subject}`);
+              console.log(`🔹 Participants: ${groupMetadata.participants.length}`);
+          }
+      }
+
+      // End of message log
+      console.log('='.repeat(60) + '\n');
+
+      // Original message processing
+      message.message = (messageType === 'ephemeralMessage') 
+          ? message.message.ephemeralMessage.message 
+          : message.message;
+
+      if (message.key && message.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true") {
+          await conn.readMessages([message.key]);
+      }
+
       const m = sms(conn, message)
       const type = getContentType(message.message)
       const from = message.key.remoteJid
@@ -206,20 +205,20 @@ conn.ev.on('messages.upsert', async(mek) => {
       const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
       const args = body.trim().split(/ +/).slice(1)
       const q = args.join(' ')
-      const isGroup = from.endsWith('@g.us')
+      const isGroupMsg = from.endsWith('@g.us')
       const sender = message.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (message.key.participant || message.key.remoteJid)
       const senderNumber = sender.split('@')[0]
       const botNumber = conn.user.id.split(':')[0]
-      const pushname = message.pushName || 'Sin Nombre'
+      const pushName = message.pushName || 'Sin Nombre'
       const isMe = botNumber.includes(senderNumber)
       const isOwner = ownerNumber.includes(senderNumber) || isMe
       const botNumber2 = await jidNormalizedUser(conn.user.id);
-      const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : ''
-      const groupName = isGroup ? groupMetadata.subject : ''
-      const participants = isGroup ? await groupMetadata.participants : ''
-      const groupAdmins = isGroup ? await getGroupAdmins(participants) : ''
-      const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false
-      const isAdmins = isGroup ? groupAdmins.includes(sender) : false
+      const groupMetadata = isGroupMsg ? await conn.groupMetadata(from).catch(e => {}) : ''
+      const groupName = isGroupMsg ? groupMetadata.subject : ''
+      const participants = isGroupMsg ? await groupMetadata.participants : ''
+      const groupAdmins = isGroupMsg ? await getGroupAdmins(participants) : ''
+      const isBotAdmins = isGroupMsg ? groupAdmins.includes(botNumber2) : false
+      const isAdmins = isGroupMsg ? groupAdmins.includes(sender) : false
       const isReact = m.message.reactionMessage ? true : false
       const reply = (teks) => {
         conn.sendMessage(from, { text: teks }, { quoted: message })
@@ -268,8 +267,8 @@ conn.ev.on('messages.upsert', async(mek) => {
 
       // Mode checking
       if(!isOwner && config.MODE === "private") return
-      if(!isOwner && isGroup && config.MODE === "inbox") return
-      if(!isOwner && !isGroup && config.MODE === "groups") return
+      if(!isOwner && isGroupMsg && config.MODE === "inbox") return
+      if(!isOwner && !isGroupMsg && config.MODE === "groups") return
 
       // Command handling
       const events = require('./command')
@@ -279,7 +278,7 @@ conn.ev.on('messages.upsert', async(mek) => {
         if (cmd) {
           if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: message.key }})
           try {
-            cmd.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
+            cmd.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroupMsg, sender, senderNumber, botNumber2, botNumber, pushName, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
           } catch (e) {
             console.error("[PLUGIN ERROR] " + e);
           }
@@ -289,31 +288,31 @@ conn.ev.on('messages.upsert', async(mek) => {
       // Event handling
       events.commands.map(async(command) => {
         if (body && command.on === "body") {
-          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroupMsg, sender, senderNumber, botNumber2, botNumber, pushName, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
         } else if (message.q && command.on === "text") {
-          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroupMsg, sender, senderNumber, botNumber2, botNumber, pushName, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
         } else if (
           (command.on === "image" || command.on === "photo") &&
           message.type === "imageMessage"
         ) {
-          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroupMsg, sender, senderNumber, botNumber2, botNumber, pushName, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
         } else if (
           command.on === "sticker" &&
           message.type === "stickerMessage"
         ) {
-          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+          command.function(conn, message, m, {from, quoted, body, isCmd, command, args, q, isGroupMsg, sender, senderNumber, botNumber2, botNumber, pushName, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
         }
       });
 
     } catch (error) {
-      console.error('ERROR IN MESSAGE PROCESSING:', error);
+      console.error('❌ ERROR IN MESSAGE PROCESSING:', error);
     }
   })
 }
 
 // Express server
 app.get("/", (req, res) => {
-  res.send("hey, bot started✅");
+  res.send("WhatsApp Bot is running ✅");
 });
 
 app.listen(port, () => console.log(`Server listening on port http://localhost:${port}`));
