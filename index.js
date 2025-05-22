@@ -213,9 +213,6 @@ conn.ev.on('messages.upsert', async (mek) => {
         }
 
         // ====================== MEDIA DOWNLOAD (OPTIONAL) ======================
-        if (['imageMessage', 'videoMessage', 'audioMessage'].includes(messageType) {
-            console.log('💾 Media can be downloaded using downloadMediaMessage()');
-        }
 
         console.log('='.repeat(60) + '\n');
 
