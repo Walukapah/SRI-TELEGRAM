@@ -99,13 +99,105 @@ console.log('Bot connected to whatsapp ✅')
 })
 conn.ev.on('creds.update', saveCreds)  
 
-conn.ev.on('messages.upsert', async(mek) => {
-mek = mek.messages[0]
-if (!mek.message) return	
-mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
-if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true"){
-await conn.readMessages([mek.key])
-}
+conn.ev.on('messages.upsert', async (mek) => {
+    try {
+        // ====================== DETAILED LOGGING ======================
+        const timestamp = new Date().toLocaleString('en-US', { 
+            timeZone: 'Asia/Colombo',
+            hour12: false,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        console.log('\n' + '='.repeat(50));
+        console.log(`📩 [${timestamp}] NEW MESSAGE RECEIVED`);
+        
+        const message = mek.messages[0];
+        if (!message) return;
+
+        // Basic message info
+        console.log(`🔹 From: ${message.key.remoteJid}`);
+        console.log(`🔹 Sender: ${message.pushName || 'Unknown'}`);
+        console.log(`🔹 Message ID: ${message.key.id}`);
+        console.log(`🔹 Is Group? ${message.key.remoteJid.endsWith('@g.us') ? 'Yes' : 'No'}`);
+
+        // Message type detection
+        const messageType = getContentType(message.message);
+        console.log(`🔹 Message Type: ${messageType}`);
+
+        // Message content extraction
+        let content = '';
+        switch (messageType) {
+            case 'conversation':
+                content = message.message.conversation;
+                break;
+            case 'extendedTextMessage':
+                content = message.message.extendedTextMessage.text;
+                if (message.message.extendedTextMessage.contextInfo?.quotedMessage) {
+                    console.log('🔹 This is a quoted reply');
+                }
+                break;
+            case 'imageMessage':
+                content = message.message.imageMessage.caption || '[Image without caption]';
+                console.log(`🔹 Image URL: ${message.message.imageMessage.url || 'Not available'}`);
+                break;
+            case 'videoMessage':
+                content = message.message.videoMessage.caption || '[Video without caption]';
+                console.log(`🔹 Video Duration: ${message.message.videoMessage.seconds}s`);
+                break;
+            case 'audioMessage':
+                console.log(`🔹 Audio Duration: ${message.message.audioMessage.seconds}s`);
+                content = '[Audio message]';
+                break;
+            case 'stickerMessage':
+                content = '[Sticker]';
+                console.log(`🔹 Sticker Emoji: ${message.message.stickerMessage.emoji || 'None'}`);
+                break;
+            case 'locationMessage':
+                const loc = message.message.locationMessage;
+                content = `📍 Location: ${loc.degreesLatitude}, ${loc.degreesLongitude}`;
+                break;
+            case 'buttonsResponseMessage':
+                content = `🛑 Selected Button: ${message.message.buttonsResponseMessage.selectedButtonId}`;
+                break;
+            default:
+                content = `[Unhandled message type: ${messageType}]`;
+        }
+
+        console.log(`🔹 Content: ${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`);
+        
+        if (message.key.fromMe) {
+            console.log('🔹 Status: Sent by this bot');
+        }
+
+        // Log reactions
+        if (message.message?.reactionMessage) {
+            const reaction = message.message.reactionMessage;
+            console.log(`🔹 Reaction: ${reaction.text} to message ${reaction.key.id}`);
+        }
+
+        console.log('='.repeat(50) + '\n');
+
+        // ====================== ORIGINAL MESSAGE PROCESSING ======================
+        message.message = (messageType === 'ephemeralMessage') 
+            ? message.message.ephemeralMessage.message 
+            : message.message;
+
+        if (message.key && message.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true") {
+            await conn.readMessages([message.key]);
+        }
+
+        // ... rest of your existing message processing code ...
+
+    } catch (error) {
+        console.error('ERROR IN MESSAGE LOGGING:', error);
+    }
+});
+    
 const m = sms(conn, mek)
 const type = getContentType(mek.message)
 const content = JSON.stringify(mek.message)
