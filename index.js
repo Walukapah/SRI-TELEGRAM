@@ -49,7 +49,7 @@ async function connectToWA() {
   var { version } = await fetchLatestBaileysVersion()
 
   const conn = makeWASocket({
-    logger: P({ level: 'debug' }),//silent
+    logger: P({ level: 'silent' }),//silent
     printQRInTerminal: false,
     browser: Browsers.macOS("Firefox"),
     syncFullHistory: true,
