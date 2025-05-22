@@ -99,37 +99,13 @@ console.log('Bot connected to whatsapp ✅')
 })
 conn.ev.on('creds.update', saveCreds)  
 
-conn.ev.on('messages.upsert', async (mek) => {
-    try {
-        let msg = mek.messages[0];
-        if (!msg.message) return;
-
-        // Handle ephemeral messages
-        const contentType = getContentType(msg.message);
-        if (contentType === 'ephemeralMessage') {
-            msg.message = msg.message.ephemeralMessage.message;
-        }
-
-        // Check for newsletter forwarding info
-        const contextInfo = msg.message?.extendedTextMessage?.contextInfo || msg.message?.contextInfo;
-        const newsletterInfo = contextInfo?.forwardedNewsletterMessageInfo;
-
-        if (newsletterInfo?.newsletterJid) {
-            console.log('===== Newsletter Forward Detected =====');
-            console.log('Newsletter JID:', newsletterInfo.newsletterJid);
-            console.log('Newsletter Name:', newsletterInfo.newsletterName);
-            console.log('Server Message ID:', newsletterInfo.serverMessageId);
-            console.log('=======================================');
-        }
-    
-    // Rest of your existing code...
-    if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true"){
-        await conn.readMessages([mek.key])
-    }
-    // ... rest of your message handling logic
-
-
- 
+conn.ev.on('messages.upsert', async(mek) => {
+mek = mek.messages[0]
+if (!mek.message) return	
+mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
+if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true"){
+await conn.readMessages([mek.key])
+}
 const m = sms(conn, mek)
 const type = getContentType(mek.message)
 const content = JSON.stringify(mek.message)
