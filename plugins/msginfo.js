@@ -13,7 +13,7 @@ cmd({
 },
 async(conn, mek, m, {from, quoted, reply}) => {
     try {
-        if (m.args[0] === "on") {
+        if (m.args && m.args[0] === "on") {
             if (messageLoggingEnabled) {
                 return reply("Message logging is already enabled.");
             }
@@ -22,26 +22,40 @@ async(conn, mek, m, {from, quoted, reply}) => {
             
             // Setup message listener
             messageLogger = (async ({ messages }) => {
-                const msg = messages[0];
-                if (msg?.message?.extendedTextMessage?.contextInfo?.forwardedNewsletterMessageInfo) {
-                    console.log("\n=== Newsletter Message Detected ===");
-                    console.log("Newsletter JID:", msg.message.extendedTextMessage.contextInfo.forwardedNewsletterMessageInfo.newsletterJid);
-                    console.log("Newsletter Name:", msg.message.extendedTextMessage.contextInfo.forwardedNewsletterMessageInfo.newsletterName);
-                    console.log("==================================\n");
+                try {
+                    if (!messages || !messages[0]) return;
+                    
+                    const msg = messages[0];
+                    
+                    // Newsletter detection
+                    if (msg?.message?.extendedTextMessage?.contextInfo?.forwardedNewsletterMessageInfo) {
+                        console.log("\n=== Newsletter Message Detected ===");
+                        console.log("Newsletter JID:", msg.message.extendedTextMessage.contextInfo.forwardedNewsletterMessageInfo.newsletterJid);
+                        console.log("Newsletter Name:", msg.message.extendedTextMessage.contextInfo.forwardedNewsletterMessageInfo.newsletterName);
+                        console.log("==================================\n");
+                    }
+                    
+                    // Basic message info
+                    if (msg.key && msg.messageTimestamp) {
+                        console.log("\n=== Message Info ===");
+                        console.log("From:", msg.key.remoteJid || "N/A");
+                        console.log("Timestamp:", msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000) : "N/A");
+                        
+                        if (msg.message) {
+                            const messageType = Object.keys(msg.message)[0];
+                            console.log("Message Type:", messageType || "N/A");
+                        }
+                        console.log("=========================\n");
+                    }
+                } catch (e) {
+                    console.error("Error in message logger:", e);
                 }
-                
-                // Log general message info
-                console.log("\n=== Message Info ===");
-                console.log("From:", msg.key.remoteJid);
-                console.log("Timestamp:", new Date(msg.messageTimestamp * 1000));
-                console.log("Message Type:", Object.keys(msg.message)[0]);
-                console.log("=========================\n");
             });
             
             conn.ev.on('messages.upsert', messageLogger);
             reply("Message logging enabled. Check console for details.");
             
-        } else if (m.args[0] === "off") {
+        } else if (m.args && m.args[0] === "off") {
             if (!messageLoggingEnabled) {
                 return reply("Message logging is already disabled.");
             }
