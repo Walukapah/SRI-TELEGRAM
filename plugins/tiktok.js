@@ -58,8 +58,8 @@ async(conn, mek, m, { from, reply }) => {
                 forwardingScore: 1,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363161513685998@newsletter',
-                    newsletterName: 'KnightBot MD',
+                    newsletterJid: '120363165918432989@newsletter',
+                    newsletterName: 'SRI-BOT 🇱🇰',
                     serverMessageId: -1
                 }
             }
