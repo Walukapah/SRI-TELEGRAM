@@ -101,20 +101,19 @@ ${menu.search}
 ╰━❁ ═══ ❃•⇆•❃ ═══ ❁━╯
 `
 
-await conn.sendMessage(from,{
-    image:{url:config.ALIVE_IMG},
-    caption:madeMenu,
-    contextInfo: {
-        forwardingScore: 1,
-        isForwarded: true,
-           forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363161513685998@newsletter',
-                newsletterName: 'KnightBot MD',
-                serverMessageId: -1
-                    }
-   }
-},
-{quoted:mek})
+    await conn.sendMessage(from, {
+            image:{url:config.ALIVE_IMG},
+            caption: madeMenu,
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: '120363165918432989@newsletter',
+                    newsletterName: 'SRI-BOT 🇱🇰',
+                    serverMessageId: -1
+                }
+            }
+        }, { quoted: mek });
 
 }catch(e){
 console.log(e)
