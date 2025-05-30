@@ -36,7 +36,7 @@ console.log("Session downloaded ✅")
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
     if(!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
     
-    const sessdata = config.SESSION_ID;
+    const sessdata = config.SESSION_ID.replace("SRI-BOT~", '');
     
     try {
         // The session data appears to be base64 encoded JSON
