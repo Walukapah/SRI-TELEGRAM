@@ -161,7 +161,7 @@ conn.ev.on('messages.upsert', async (mek) => {
     // ...
 
 const m = sms(conn, mek)
-const type = getContentType(mek.message)
+//const type = getContentType(mek.message)
 const content = JSON.stringify(mek.message)
 const from = mek.key.remoteJid
 const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
