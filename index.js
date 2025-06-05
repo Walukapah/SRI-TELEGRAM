@@ -99,13 +99,67 @@ console.log('Bot connected to whatsapp ✅')
 })
 conn.ev.on('creds.update', saveCreds)  
 
-conn.ev.on('messages.upsert', async(mek) => {
-mek = mek.messages[0]
-if (!mek.message) return	
-mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
-if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true"){
-await conn.readMessages([mek.key])
-}
+conn.ev.on('messages.upsert', async (mek) => {
+    mek = mek.messages[0]
+    if (!mek.message) return
+
+    mek.message = (getContentType(mek.message) === 'ephemeralMessage')
+      ? mek.message.ephemeralMessage.message
+      : mek.message
+
+    const from = mek.key.remoteJid
+    const type = getContentType(mek.message)
+
+    // STATUS BROADCAST CHECK
+    if (from === 'status@broadcast') {
+        // Auto read status if enabled
+        if (config.AUTO_READ_STATUS === "true") {
+            await conn.readMessages([mek.key])
+        }
+
+        // Save & forward status to owner if enabled
+        if (config.STATUS_SAVE === "true") {
+            try {
+                const ownerJid = ownerNumber[0] + "@s.whatsapp.net"
+
+                const mediaType = getContentType(mek.message)
+                const mediaMsg = mek.message[mediaType]
+
+                const quotedMessage = {
+                    key: mek.key,
+                    message: mek.message,
+                    pushName: mek.pushName || "",
+                }
+
+                const caption = mediaMsg.caption || "📝 *Forwarded Status*"
+
+                if (mediaType === "imageMessage") {
+                    await conn.sendMessage(ownerJid, {
+                        image: mediaMsg,
+                        caption: caption
+                    }, { quoted: quotedMessage })
+                } else if (mediaType === "videoMessage") {
+                    await conn.sendMessage(ownerJid, {
+                        video: mediaMsg,
+                        caption: caption
+                    }, { quoted: quotedMessage })
+                } else if (mediaType === "extendedTextMessage" || mediaType === "conversation") {
+                    await conn.sendMessage(ownerJid, {
+                        text: caption
+                    }, { quoted: quotedMessage })
+                }
+                console.log("✅ Status forwarded to owner")
+            } catch (err) {
+                console.error("❌ Error forwarding status:", err)
+            }
+        }
+
+        return // Skip the rest if status
+    }
+
+    // === Rest of your message handler logic (commands, plugins, etc) goes below ===
+    // ...
+
 const m = sms(conn, mek)
 const type = getContentType(mek.message)
 const content = JSON.stringify(mek.message)
