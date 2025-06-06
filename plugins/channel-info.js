@@ -37,11 +37,11 @@ async(conn, mek, m, {from, quoted, body, isCmd, command, args, q, isGroup, sende
                         `${currentTime}\n\n` +
                         `_Information fetched by ${pushname}_`;
         
-        await reply(response);
+        
         
         // Simulate edited message (like in your screenshot)
         await new Promise(resolve => setTimeout(resolve, 3000));
-        await reply("✔️ Information updated");
+        await reply(response);
         
     } catch(e) {
         console.log(e);
