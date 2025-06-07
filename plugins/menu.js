@@ -1,122 +1,84 @@
-//const {readEnv} = require('../lib/database')
-//const {cmd , commands} = require('../command')
-const config = require('../config')
-const {cmd , commands} = require('../command')
-
+const config = require('../config');
+const moment = require('moment-timezone');
+const { cmd, commands } = require('../command');
+const axios = require('axios');
 
 cmd({
-    pattern: "menu",
-    react: "👾",
-    desc: "get cmd list",
-    category: "main",
-    filename: __filename
+  pattern: "menu",
+  alias: ["allmenu", "srim"],
+  use: '.menu',
+  desc: "Show all bot commands",
+  category: "menu",
+  react: "📜",
+  filename: __filename
 },
-async(conn, mek, m,{from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply}) => {
-try{
-//const config = await readEnv();
-let menu = {
-main: '',
-download: '',
-group: '',
-owner: '',
-convert: '',
-search: ''
-};
+async (conn, mek, m, { from, reply }) => {
+  try {
+    const totalCommands = commands.length;
+    const date = moment().tz("America/Port-au-Prince").format("dddd, DD MMMM YYYY");
 
-for (let i = 0; i < commands.length; i++) {
-if (commands[i].pattern && !commands[i].dontAddCommandList) {
-menu[commands[i].category] += `*┋* ${commands[i].pattern}\n`;
- }
-}
+    const uptime = () => {
+      let sec = process.uptime();
+      let h = Math.floor(sec / 3600);
+      let m = Math.floor((sec % 3600) / 60);
+      let s = Math.floor(sec % 60);
+      return `${h}h ${m}m ${s}s`;
+    };
 
-let madeMenu = `*╭─────────────────❒⁠⁠⁠⁠*
-
-*⇆ ʜɪɪ ᴍʏ ᴅᴇᴀʀ ғʀɪᴇɴᴅ ⇆*
-
-     *${pushname}*
-
-*┕─────────────────❒*
-
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━
-      *ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ sɪʟᴇɴᴛ-sᴏʙx-ᴍᴅ ғᴜʟʟ ᴄᴏᴍᴍᴀɴᴅ ʟɪsᴛ*
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-*ᴄʀᴇᴀᴛᴇᴅ ʙʏ sɪʟᴇɴᴛ ʟᴏᴠᴇʀ⁴³²👨🏻‍💻*
+    // Menu principal
+    let menuText = `
+*╭══ SRI-BOT*
+*┃❃* *USER* : @${m.sender.split("@")[0]}
+*┃❃* *RUNTIME* : ${uptime()}
+*┃❃* *MODE* : *${config.MODE}*
+*┃❃* *PREFIX* : [ ${config.PREFIX} ]
+*┃❃* *PLUGIN* : ${totalCommands}
+*┃❃* *DEVELOPER* : *WALUKA*
+*┃❃* *VERSIONS* : *${config.VERSION}*
+*┕──────────────❒*
+`;
 
 
-*╭─────────────────❒⁠⁠⁠⁠*
-*_https://github.com/SILENTLOVER4/SILENT-SOBX-MD_*
-*┕─────────────────❒*
+    // Catégories et commandes
+    let category = {};
+    for (let cmd of commands) {
+      if (!cmd.category) continue;
+      if (!category[cmd.category]) category[cmd.category] = [];
+      category[cmd.category].push(cmd);
+    }
 
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂ᴅᴏᴡɴʟᴏᴀᴅ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.download}
-*┕─────────────────❒*
+    const keys = Object.keys(category).sort();
+    for (let k of keys) {
+      menuText += `\n\n*╭─❝${k.toUpperCase()} MENU*❞`;
+      const cmds = category[k].filter(c => c.pattern).sort((a, b) => a.pattern.localeCompare(b.pattern));
+      cmds.forEach((cmd) => {
+        const usage = cmd.pattern.split('|')[0];
+        menuText += `\n├◯ ${config.PREFIX}${usage}`;
+      });
+      menuText += `\n*┕─────────────▩⫸*`;
+    }
 
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂ᴍᴀɪɴ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.main}
-*┕─────────────────❒*
+    // Affecter à la variable caption
+    const selectedStyle = menuText;
 
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂ɢʀᴏᴜᴘ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.group}
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂ᴏᴡɴᴇʀ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.owner}
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂ᴄᴏɴᴠᴇʀᴛ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.convert}
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-> *❂sᴇᴀʀᴄʜ ᴄᴏᴍᴍᴀɴᴅs❂*
-*┕─────────────────❒*
-
-*╭─────────────────❒⁠⁠⁠⁠*
-${menu.search}
-*┕─────────────────❒*
-
-*❒⁠⁠⁠⁠▭▬▭▬▭▬▭▬▭▬▭▬▭▬▭❒*⁠⁠⁠⁠
-
-> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ sɪʟᴇɴᴛ_ʟᴏᴠᴇʀ⁴³²*
-
-╰━❁ ═══ ❃•⇆•❃ ═══ ❁━╯
-`
-
+    // Envoyer l'image avec le menu
     await conn.sendMessage(from, {
-            image:{url:config.ALIVE_IMG},
-            caption: madeMenu,
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363165918432989@newsletter',
-                    newsletterName: 'SRI-BOT 🇱🇰',
-                    serverMessageId: -1
-                }
-            }
-        }, { quoted: mek });
+      image: { url: 'https://files.catbox.moe/82b8gr.jpg' },
+      caption: selectedStyle,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        forwardingScore: 999,
+        isForwarded: true,
+        forwardedNewsletterMessageInfo: {
+          newsletterJid: '120363401658098220@newsletter',
+          newsletterName: config.OWNER_NAME || '𝗚𝗢𝗧𝗔𝗥-𝗫𝗠𝗗',
+          serverMessageId: 143
+        }
+      }
+    }, { quoted: mek });
 
-}catch(e){
-console.log(e)
-reply(`${e}`)
-}
-})
+  } catch (e) {
+    console.error(e);
+    reply(`❌ Error: ${e.message}`);
+  }
+});
