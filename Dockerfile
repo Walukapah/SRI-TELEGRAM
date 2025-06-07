@@ -1,18 +1,19 @@
-# Base image
-FROM node:16
+FROM node:18-alpine
 
-# Set working directory
-WORKDIR /usr/src/app
+# Install system dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev
 
-# Copy package.json and install dependencies
+WORKDIR /app
 COPY package*.json ./
 RUN npm install
-
-# Copy application source code
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
-
-# Start the application
+EXPOSE 8080
 CMD ["npm", "start"]
