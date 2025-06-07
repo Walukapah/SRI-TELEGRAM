@@ -63,7 +63,7 @@ async (conn, mek, m, { from, reply }) => {
 
     // Envoyer l'image avec le menu
     await conn.sendMessage(from, {
-      image: { url: config.MENU_IMG },
+      image: { url: config.MENU_IMG_URL },
       caption: selectedStyle,
       contextInfo: {
         mentionedJid: [m.sender],
@@ -72,6 +72,7 @@ async (conn, mek, m, { from, reply }) => {
         forwardedNewsletterMessageInfo: {
           newsletterJid: config.NEWS_LETTER,
           newsletterName: config.BOT_NAME,
+          showAdAttribution: true,
           serverMessageId: 143
         }
       }
