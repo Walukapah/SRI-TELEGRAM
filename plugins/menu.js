@@ -63,7 +63,7 @@ async (conn, mek, m, { from, reply }) => {
 
     // Envoyer l'image avec le menu
     await conn.sendMessage(from, {
-      image: { url: 'https://files.catbox.moe/82b8gr.jpg' },
+      image: { url: config.MENU_IMG },
       caption: selectedStyle,
       contextInfo: {
         mentionedJid: [m.sender],
