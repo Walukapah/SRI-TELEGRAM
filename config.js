@@ -15,7 +15,7 @@ module.exports = {
     MENU_IMG_URL: process.env.MENU_IMG_URL || "https://files.catbox.moe/zuhmxp.jpg",
     AUTO_READ_STATUS: process.env.AUTO_READ_STATUS || "true",
     STATUS_SAVE: process.env.STATUS_SAVE || "true",
-    NEWS_LETTER: process.env.NEWS_LETTER || "",
+    NEWS_LETTER: process.env.NEWS_LETTER || "120363165918432989@newsletter",
     MODE: process.env.MODE || "public", // bot modes (public,private,inbox,groups)
     VERSION: process.env.VERSION || "1.0.0" // Added version here
 };
