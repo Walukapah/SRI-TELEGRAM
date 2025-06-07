@@ -67,11 +67,11 @@ async (conn, mek, m, { from, reply }) => {
       caption: selectedStyle,
       contextInfo: {
         mentionedJid: [m.sender],
-        forwardingScore: 999,
+        forwardingScore: 1,
         isForwarded: true,
         forwardedNewsletterMessageInfo: {
-          newsletterJid: '120363401658098220@newsletter',
-          newsletterName: config.OWNER_NAME || '𝗚𝗢𝗧𝗔𝗥-𝗫𝗠𝗗',
+          newsletterJid: config.NEWS_LETTER,
+          newsletterName: config.BOT_NAME,
           serverMessageId: 143
         }
       }
