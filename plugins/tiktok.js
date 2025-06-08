@@ -47,7 +47,7 @@ async(conn, mek, m, { from, reply }) => {
 ↩️ *Shares:* ${shares}
 ⏱️ *Duration:* ${duration}
 
-*Downloaded by Sri-Bot*`;
+> Downloaded by Sri-Bot`;
 
         // Send video with metadata and contextInfo
         await conn.sendMessage(from, {
@@ -58,8 +58,8 @@ async(conn, mek, m, { from, reply }) => {
                 forwardingScore: 1,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363165918432989@newsletter',
-                    newsletterName: 'SRI-BOT 🇱🇰',
+                    newsletterJid: config.NEWS_LETTER,
+                    newsletterName: config.BOT_NAME,
                     serverMessageId: -1
                 }
             }
