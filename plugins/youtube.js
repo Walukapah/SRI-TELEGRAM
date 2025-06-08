@@ -67,8 +67,8 @@ async(conn, mek, m, { from, reply }) => {
                 forwardingScore: 1,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363165918432989@newsletter',
-                    newsletterName: 'SRI-BOT 🇱🇰',
+                    newsletterJid: config.NEWS_LETTER,
+                    newsletterName: config.BOT_NAME,
                     serverMessageId: -1
                 }
             }
@@ -83,8 +83,8 @@ async(conn, mek, m, { from, reply }) => {
                 forwardingScore: 1,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363165918432989@newsletter',
-                    newsletterName: 'SRI-BOT 🇱🇰',
+                    newsletterJid: config.NEWS_LETTER,
+                    newsletterName: config.BOT_NAME,
                     serverMessageId: -1
                 }
             }
