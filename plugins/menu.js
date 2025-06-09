@@ -38,7 +38,6 @@ async (conn, mek, m, { from, reply }) => {
 *┕──────────────❒*
 `;
 
-
     // Catégories et commandes
     let category = {};
     for (let cmd of commands) {
@@ -58,25 +57,28 @@ async (conn, mek, m, { from, reply }) => {
       menuText += `\n*┕─────────────▩⫸*`;
     }
 
-    // Affecter à la variable caption
-    const selectedStyle = menuText;
+    const url = 'https://github.com/Keithkeizzah/KEITH-MD2';
+    const murl = 'https://whatsapp.com/channel/0029Vaan9TF9Bb62l8wpoD47';
+    const img = 'https://i.imgur.com/vTs9acV.jpeg';
 
-    // Envoyer l'image avec le menu
-    await conn.sendMessage(from, {
-  caption: menuText,
-  contextInfo: {
-    mentionedJid: [m.sender],
-    externalAdReply: {
-      showAdAttribution: true,
-      title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
-      body: 'SRI BOT 🇱🇰',
-      thumbnailUrl: config.MENU_IMG_URL,
-      sourceUrl: config.MEDIA_URL,
-      mediaType: 1,
-      renderLargerThumbnail: true,
-    }
-  }
-}, { quoted: mek });
+    // Audio file message with external ad reply info
+    const doc = {
+        caption: menuText,
+        contextInfo: {
+            mentionedJid: [m.sender],
+            externalAdReply: {
+                title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
+                body: 'SRI BOT 🇱🇰',
+                thumbnailUrl: img,
+                sourceUrl: murl,
+                mediaType: 1,
+                renderLargerThumbnail: true,
+            },
+        },
+    };
+
+    // Send the message
+    await conn.sendMessage(from, doc, { quoted: mek });
 
   } catch (e) {
     console.error(e);
