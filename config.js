@@ -18,5 +18,5 @@ module.exports = {
     NEWS_LETTER: process.env.NEWS_LETTER || "120363165918432989@newsletter",
     MODE: process.env.MODE || "groups", // bot modes (public,private,inbox,groups)
     VERSION: process.env.VERSION || "1.0.0", // Added version here
-    MEDIA_URL: process.env.MEDIA_URL || "https://sri-website.vercel.app/"
+    MEDIA_URL: process.env.MEDIA_URL || "https://whatsapp.com/channel/0029VaAPzWX0G0XdhMbtRI2i"
 };
