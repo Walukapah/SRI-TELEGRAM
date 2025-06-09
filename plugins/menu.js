@@ -79,6 +79,7 @@ async (conn, mek, m, { from, reply }) => {
         body: 'SRI BOT 🇱🇰',
         thumbnailUrl: config.MENU_IMG_URL,
         sourceUrl: config.MEDIA_URL,
+        mediaUrl: config.MEDIA_URL,
         mediaType: 1,
         renderLargerThumbnail: true,
     }
