@@ -67,7 +67,7 @@ async (conn, mek, m, { from, reply }) => {
             showAdAttribution: true,
             title: 'SRI BOT MENU LIST ♲',
             body: 'SRI BOT 🇱🇰',
-            thumbnailUrl: 'https://i.imgur.com/h6KLovz.jpeg',
+            thumbnailUrl: 'https://i.imgur.com/IAuT6qs.jpeg',
             sourceUrl: config.MEDIA_URL,
             mediaType: 1,
             renderLargerThumbnail: true
