@@ -63,20 +63,20 @@ async (conn, mek, m, { from, reply }) => {
 
     // Envoyer l'image avec le menu
     await conn.sendMessage(from, {
-      caption: menuText,
-      contextInfo: {
+  caption: menuText,
+  contextInfo: {
     mentionedJid: [m.sender],
     externalAdReply: {
-        showAdAttribution: true,
-        title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
-        body: 'SRI BOT 🇱🇰',
-        thumbnailUrl: config.MENU_IMG_URL,
-        sourceUrl: config.MEDIA_URL,
-        mediaType: 1,
-        renderLargerThumbnail: true,
+      showAdAttribution: true,
+      title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
+      body: 'SRI BOT 🇱🇰',
+      thumbnailUrl: config.MENU_IMG_URL,
+      sourceUrl: config.MEDIA_URL,
+      mediaType: 1,
+      renderLargerThumbnail: true,
     }
-}
-    }, { quoted: mek });
+  }
+}, { quoted: mek });
 
   } catch (e) {
     console.error(e);
