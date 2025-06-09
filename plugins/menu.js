@@ -58,7 +58,6 @@ async (conn, mek, m, { from, reply }) => {
     }
 
     // First try sending as image with caption
-    try {
       await conn.sendMessage(from, { 
         image: { url: config.MENU_IMG_URL },
         caption: menuText,
