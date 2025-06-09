@@ -38,6 +38,7 @@ async (conn, mek, m, { from, reply }) => {
 *┕──────────────❒*
 `;
 
+
     // Catégories et commandes
     let category = {};
     for (let cmd of commands) {
@@ -57,41 +58,25 @@ async (conn, mek, m, { from, reply }) => {
       menuText += `\n*┕─────────────▩⫸*`;
     }
 
-    // First try sending as image with caption
-    try {
-      await conn.sendMessage(from, { 
-        //image: { url: config.MENU_IMG_URL },
-        caption: menuText,
-        contextInfo: {
-          mentionedJid: [m.sender],
-          externalAdReply: {
-            showAdAttribution: true,
-            title: 'SRI BOT MENU LIST ♲',
-            body: 'SRI BOT 🇱🇰',
-            thumbnailUrl: 'https://i.imgur.com/FNK5yFR.jpeg',
-            sourceUrl: config.MEDIA_URL,
-            mediaType: 1
-          }
-        }
-      }, { quoted: mek });
-    } catch (e) {
-      // If image fails, send as text only
-      console.error("Image send failed, falling back to text:", e);
-      await conn.sendMessage(from, { 
-        text: menuText,
-        contextInfo: {
-          mentionedJid: [m.sender],
-          externalAdReply: {
-            showAdAttribution: true,
-            title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
-            body: 'SRI BOT 🇱🇰',
-            thumbnailUrl: 'https://i.imgur.com/FNK5yFR.jpeg',
-            sourceUrl: config.MEDIA_URL,
-            mediaType: 1
-          }
-        }
-      }, { quoted: mek });
+    // Affecter à la variable caption
+    const selectedStyle = menuText;
+
+    // Envoyer l'image avec le menu
+    await conn.sendMessage(from, {
+      caption: menuText,
+      contextInfo: {
+    mentionedJid: [m.sender],
+    externalAdReply: {
+        showAdAttribution: true,
+        title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
+        body: 'SRI BOT 🇱🇰',
+        thumbnailUrl: config.MENU_IMG_URL,
+        sourceUrl: config.MEDIA_URL,
+        mediaType: 1,
+        renderLargerThumbnail: true,
     }
+}
+    }, { quoted: mek });
 
   } catch (e) {
     console.error(e);
