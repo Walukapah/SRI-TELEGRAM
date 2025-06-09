@@ -60,13 +60,13 @@ async (conn, mek, m, { from, reply }) => {
     // First try sending as image with caption
     try {
       await conn.sendMessage(from, { 
-        image: { url: config.MENU_IMG_URL },
+        //image: { url: config.MENU_IMG_URL },
         caption: menuText,
         contextInfo: {
           mentionedJid: [m.sender],
           externalAdReply: {
             showAdAttribution: true,
-            title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
+            title: 'SRI BOT MENU LIST ♲',
             body: 'SRI BOT 🇱🇰',
             thumbnailUrl: config.MENU_IMG_URL,
             sourceUrl: config.MEDIA_URL,
