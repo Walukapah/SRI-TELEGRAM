@@ -63,19 +63,26 @@ async (conn, mek, m, { from, reply }) => {
 
     // Envoyer l'image avec le menu
     await conn.sendMessage(from, {
-      image: { url: config.MENU_IMG_URL },
       caption: selectedStyle,
       contextInfo: {
-        mentionedJid: [m.sender],
-        forwardingScore: 1,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-          newsletterJid: config.NEWS_LETTER,
-          newsletterName: config.BOT_NAME,
-          showAdAttribution: true,
-          serverMessageId: 143
-        }
-      }
+    mentionedJid: [m.sender],
+    //forwardingScore: 1,
+    //isForwarded: true,
+    forwardedNewsletterMessageInfo: {
+        newsletterJid: config.NEWS_LETTER,
+        newsletterName: config.BOT_NAME,
+        serverMessageId: 143
+    },
+    externalAdReply: {
+        showAdAttribution: true,
+        title: '𝗜 𝗔𝗠 𝗔𝗟𝗜𝗩𝗘 𝗠𝗢𝗧𝗛𝗘𝗥𝗙𝗨𝗖𝗞𝗘𝗥',
+        body: 'SRI BOT 🇱🇰',
+        thumbnailUrl: config.MENU_IMG_URL,
+        sourceUrl: config.MEDIA_URL,
+        mediaType: 1,
+        renderLargerThumbnail: true,
+    }
+}
     }, { quoted: mek });
 
   } catch (e) {
