@@ -22,6 +22,17 @@ const prefix = config.PREFIX
 const ownerNumber = config.OWNER_NUMBER
 
 //===================SESSION-AUTH============================
+/**
+if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
+if(!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
+const sessdata = config.SESSION_ID
+const filer = File.fromURL(`https://mega.nz/file/${sessdata}`)
+filer.download((err, data) => {
+if(err) throw err
+fs.writeFile(__dirname + '/auth_info_baileys/creds.json', data, () => {
+console.log("Session downloaded ✅")
+})})}
+**/
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
     if(!config.SESSION_ID) return console.log('Please add your session to SESSION_ID env !!')
     
@@ -64,7 +75,11 @@ conn.ev.on('connection.update', (update) => {
 const { connection, lastDisconnect } = update
 if (connection === 'close') {
 if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
-connectToWA()
+            // Add 5 second delay before reconnecting
+            setTimeout(() => {
+                console.log('Reconnecting after disconnect...')
+                connectToWA()
+            }, 5000)
 }
 } else if (connection === 'open') {
 console.log('😼 Installing... ')
@@ -165,9 +180,7 @@ if (!isReact) {
         
 //==================work-type=====================================================================================================================================
 
-if(!isOwner && config.MODE === "private") return
-if(!isOwner && isGroup && config.MODE === "inbox") return
-if(!isOwner && !isGroup && config.MODE === "groups") return
+
 
 //==============================================================================================================================================================
         
@@ -203,6 +216,11 @@ command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, i
 }});
 //============================================================================ 
 
+if(!isOwner && config.MODE === "private") return
+if(!isOwner && isGroup && config.MODE === "inbox") return
+if(!isOwner && !isGroup && config.MODE === "groups") return
+
+    
 })
 }
 app.get("/", (req, res) => {
@@ -211,4 +229,4 @@ res.send("hey, bot started✅");
 app.listen(port, () => console.log(`Server listening on port http://localhost:${port}`));
 setTimeout(() => {
 connectToWA()
-}, 4000);  
+}, 4000);
