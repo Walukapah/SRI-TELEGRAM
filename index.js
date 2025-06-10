@@ -135,6 +135,11 @@ const reply = (teks) => {
 conn.sendMessage(from, { text: teks }, { quoted: mek })
 }
 
+//==========WORKTYPE============ 
+if(!isOwner && config.MODE === "private") return
+if(!isOwner && isGroup && config.MODE === "inbox") return
+if(!isOwner && !isGroup && config.MODE === "groups") return
+
 conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
               let mime = '';
               let res = await axios.head(url)
@@ -175,10 +180,6 @@ if (!isReact) {
   m.react(randomEmoji);
 }
 //==========================
-
-if(!isOwner && config.MODE === "private") return
-if(!isOwner && isGroup && config.MODE === "inbox") return
-if(!isOwner && !isGroup && config.MODE === "groups") return
 
     
 const events = require('./command')
