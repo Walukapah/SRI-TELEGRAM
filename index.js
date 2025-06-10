@@ -177,27 +177,26 @@ if (!isReact) {
 //==========================
 
 //=====================================================================================================
-        
-//==================work-type=====================================================================================================================================
-
-if (!isOwner && config.MODE === "private") {
-  return;  // Only owner can access in private mode
+        //==================work-type=====================================================================================================================================
+if (config.MODE === "private") {
+    if (!isOwner) {
+        return;  // Only owner can access in private mode
+    }
+} else if (config.MODE === "inbox") {
+    if (!isOwner && isGroup) {
+        return;  // Only owner can access in inbox mode (groups blocked)
+    }
+} else if (config.MODE === "groups") {
+    if (!isOwner && !isGroup) {
+        return;  // Only owner can access in groups mode (private chats blocked)
+    }
+} else if (config.MODE === "public") {
+    // Everyone can access in public mode
+} else {
+    // Default mode (if MODE is not set correctly)
+    console.log("⚠️ Invalid MODE detected. Defaulting to public mode.");
 }
-
-if (!isOwner && isGroup && config.MODE === "inbox") {
-  return;  // Only owner can access in inbox mode
-}
-
-if (!isOwner && !isGroup && config.MODE === "groups") {
-  return;  // Only owner can access in groups mode
-}
-
-if (config.MODE === "public") {
-  // Everyone can access in public mode, no check for isOwner or isGroup
-  // Add public access logic here
-}
-
-// Add more logic for other modes here
+//==============================================================================================================================================================
 
 //==============================================================================================================================================================
         
