@@ -179,15 +179,7 @@ if (!isReact) {
 //=====================================================================================================
 
 // ================== MODE CHECKING ==================
-if (config.MODE === "private") {
-    if (!isOwner) return; // Only owner can use in private mode
-} 
-else if (config.MODE === "inbox") {
-    if (isGroup) return; // Block groups in inbox mode
-} 
-else if (config.MODE === "groups") {
-    if (!isGroup) return; // Block private chats in groups mode
-} 
+ 
 // Public mode allows everyone (no restrictions)
 //==============================================================================================================================================================
         
