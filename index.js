@@ -176,13 +176,11 @@ if (!isReact) {
 }
 //==========================
 
-//=====================================================================================================
+if(!isOwner && config.MODE === "private") return
+if(!isOwner && isGroup && config.MODE === "inbox") return
+if(!isOwner && !isGroup && config.MODE === "groups") return
 
-// ================== MODE CHECKING ==================
- 
-// Public mode allows everyone (no restrictions)
-//==============================================================================================================================================================
-        
+    
 const events = require('./command')
 const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
 if (isCmd) {
