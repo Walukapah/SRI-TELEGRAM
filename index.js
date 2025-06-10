@@ -177,27 +177,18 @@ if (!isReact) {
 //==========================
 
 //=====================================================================================================
-        //==================work-type=====================================================================================================================================
-if (config.MODE === "private") {
-    if (!isOwner) {
-        return;  // Only owner can access in private mode
-    }
-} else if (config.MODE === "inbox") {
-    if (!isOwner && isGroup) {
-        return;  // Only owner can access in inbox mode (groups blocked)
-    }
-} else if (config.MODE === "groups") {
-    if (!isOwner && !isGroup) {
-        return;  // Only owner can access in groups mode (private chats blocked)
-    }
-} else if (config.MODE === "public") {
-    // Everyone can access in public mode
-} else {
-    // Default mode (if MODE is not set correctly)
-    console.log("⚠️ Invalid MODE detected. Defaulting to public mode.");
-}
-//==============================================================================================================================================================
 
+// ================== MODE CHECKING ==================
+if (config.MODE === "private") {
+    if (!isOwner) return; // Only owner can use in private mode
+} 
+else if (config.MODE === "inbox") {
+    if (isGroup) return; // Block groups in inbox mode
+} 
+else if (config.MODE === "groups") {
+    if (!isGroup) return; // Block private chats in groups mode
+} 
+// Public mode allows everyone (no restrictions)
 //==============================================================================================================================================================
         
 const events = require('./command')
