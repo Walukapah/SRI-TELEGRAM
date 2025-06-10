@@ -27,7 +27,7 @@ async (conn, mek, m, { from, reply }) => {
 
     // Menu principal
     let menuText = `
-*╭══ SRI-BOT*
+*╭══ ${config.BOT_NAME}*
 *┃❃* *USER* : @${m.sender.split("@")[0]}
 *┃❃* *RUNTIME* : ${uptime()}
 *┃❃* *MODE* : *${config.MODE}*
@@ -54,12 +54,12 @@ async (conn, mek, m, { from, reply }) => {
         const usage = cmd.pattern.split('|')[0];
         menuText += `\n├◯ ${config.PREFIX}${usage}`;
       });
-      menuText += `\n*┕─────────────▩⫸*`;
+      menuText += `\n*┕─────────────㋚*`;
     }
 
     // First try sending as image with caption
       await conn.sendMessage(from, { 
-        image: { url: config.MENU_IMG_URL },
+        //image: { url: config.MENU_IMG_URL },
         caption: menuText,
         contextInfo: {
           mentionedJid: [m.sender],
@@ -67,7 +67,7 @@ async (conn, mek, m, { from, reply }) => {
             showAdAttribution: true,
             title: 'SRI BOT MENU LIST ♲',
             body: 'SRI BOT 🇱🇰',
-            thumbnailUrl: 'https://images.weserv.nl/?url=i.imgur.com/W2CaVZW.jpeg',
+            thumbnailUrl: config.MENU_IMG_URL,
             sourceUrl: config.MEDIA_URL,
             mediaType: 1,
             renderLargerThumbnail: true
