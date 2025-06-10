@@ -47,7 +47,7 @@ async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sen
             },
             message: {
                 contactMessage: {
-                    displayName: name,
+                    displayName: mek,
                     vcard: `BEGIN:VCARD\nVERSION:3.0\nN:;a,;;;\nFN:${name}\nitem1.TEL;waid=${sender.split('@')[0]}:${sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`,
                 },
             },
