@@ -180,9 +180,24 @@ if (!isReact) {
         
 //==================work-type=====================================================================================================================================
 
-if(!isOwner && config.MODE === "private") return
-if(!isOwner && isGroup && config.MODE === "inbox") return
-if(!isOwner && !isGroup && config.MODE === "groups") return
+if (!isOwner && config.MODE === "private") {
+  return;  // Only owner can access in private mode
+}
+
+if (!isOwner && isGroup && config.MODE === "inbox") {
+  return;  // Only owner can access in inbox mode
+}
+
+if (!isOwner && !isGroup && config.MODE === "groups") {
+  return;  // Only owner can access in groups mode
+}
+
+if (config.MODE === "public") {
+  // Everyone can access in public mode, no check for isOwner or isGroup
+  // Add public access logic here
+}
+
+// Add more logic for other modes here
 
 //==============================================================================================================================================================
         
