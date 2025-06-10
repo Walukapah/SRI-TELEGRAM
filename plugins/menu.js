@@ -57,23 +57,22 @@ async (conn, mek, m, { from, reply }) => {
       menuText += `\n*┕─────────────㋚*`;
     }
 
-    // First try sending as image with caption
-      await conn.sendMessage(from, { 
-        //image: { url: config.MENU_IMG_URL },
-        caption: menuText,
-        contextInfo: {
-          mentionedJid: [m.sender],
-          externalAdReply: {
-            showAdAttribution: true,
-            title: 'SRI BOT MENU LIST ♲',
-            body: 'SRI BOT 🇱🇰',
-            thumbnailUrl: config.MENU_IMG_URL,
-            sourceUrl: config.MEDIA_URL,
-            mediaType: 1,
-            renderLargerThumbnail: true
-          }
+    // First try sending as text message if image fails
+    await conn.sendMessage(from, { 
+      text: menuText,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        externalAdReply: {
+          showAdAttribution: true,
+          title: 'SRI BOT MENU LIST ♲',
+          body: 'SRI BOT 🇱🇰',
+          thumbnailUrl: config.MENU_IMG_URL,
+          sourceUrl: config.MEDIA_URL,
+          mediaType: 1,
+          renderLargerThumbnail: true
         }
-      }, { quoted: mek });
+      }
+    }, { quoted: mek });
 
   } catch (e) {
     console.error(e);
