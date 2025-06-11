@@ -158,28 +158,10 @@ conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
             }
 
 //========== WORK TYPE ============ 
-const allowedModes = ['public', 'private', 'groups', 'inbox']; // මෙය ඉහතින් define කරන්න
-if (!allowedModes.includes(config.MODE)) {
-    console.log("⚠️ Invalid MODE in config. Using 'public' as default.");
-    config.MODE = 'public';
-}
-
-// Public Mode: Everyone can use the bot (Default)
-if (config.MODE === 'public') {
-    // No restrictions
-}
-// Private Mode: Only owner can use the bot
-else if (config.MODE === 'private') {
-    if (!isOwner) return;
-}
-// Groups Mode: Only works in groups
-else if (config.MODE === 'groups') {
-    if (!isGroup) return;
-}
-// Inbox Mode: Only works in private chats
-else if (config.MODE === 'inbox') {
-    if (isGroup) return;
-}
+if(!isOwner && config.MODE === "private") return
+  if(!isOwner && isGroup && config.MODE === "inbox") return
+  if(!isOwner && !isGroup && config.MODE === "groups") return
+  
     
 
 //=================REACT_MESG========================================================================
