@@ -11,7 +11,7 @@
   "author": "WalukaPahan",
   "license": "GPL-3.0 license",
   "dependencies": {
-    "@whiskeysockets/baileys": "github:gatanina-li/baileys",
+    "@whiskeysockets/baileys": "6.7.9",
     "@adiwajshing/keyed-db": "^0.2.4",
     "@bochilteam/scraper": "^4.2.4",
     "@brandond/findthelyrics": "^2.0.5",
