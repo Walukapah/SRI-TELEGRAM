@@ -131,7 +131,7 @@ await conn.readMessages([mek.key])
   const args = body.trim().split(/ +/).slice(1)
   const q = args.join(' ')
   const text = args.join(' ')
-  const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us')Add commentMore actions
+  const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us')
 
 // Then use:
 const isGroup = isGroupJid(from)
