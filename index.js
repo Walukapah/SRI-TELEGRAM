@@ -176,10 +176,10 @@ conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
             }
 
 //========== WORK TYPE ============ 
-if(!isOwner && config.MODE === "private") return
-  if(!isOwner && isGroup && config.MODE === "inbox") return
-  if(!isOwner && !isGroup && config.MODE === "groups") return
-  
+// index.js (සංශෝධිත)
+if (config.MODE === "private" && !isOwner) return;
+if (config.MODE === "inbox" && isGroup) return;
+if (config.MODE === "groups" && !isGroup) return;
     
 
 //=================REACT_MESG========================================================================
