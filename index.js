@@ -131,10 +131,7 @@ await conn.readMessages([mek.key])
   const args = body.trim().split(/ +/).slice(1)
   const q = args.join(' ')
   const text = args.join(' ')
-const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us')
-
-// Then use:
-const isGroup = isGroupJid(from)
+  const isGroup = from.endsWith('@g.us')
   const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid)
   const senderNumber = sender.split('@')[0]
   const botNumber = conn.user.id.split(':')[0]
