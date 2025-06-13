@@ -131,6 +131,19 @@ await conn.readMessages([mek.key])
   const args = body.trim().split(/ +/).slice(1)
   const q = args.join(' ')
   const text = args.join(' ')
+/**
+const isGroupChat = (jid) => typeof jid === 'string' && jid.endsWith('@g.us')
+
+const sms = (conn, m) => {
+	if (m.key) {
+		m.id = m.key.id
+		m.chat = m.key.remoteJid
+		m.fromMe = m.key.fromMe
+		m.isGroup = isGroupChat(m.chat)
+		m.sender = m.fromMe ? conn.user.id.split(':')[0]+'@s.whatsapp.net' : m.isGroup ? m.key.participant : m.key.remoteJid
+	}
+	// ... rest remains unchanged
+    **/
   const isGroup = from.includes('@g.us')
   const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid)
   const senderNumber = sender.split('@')[0]
