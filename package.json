@@ -8,14 +8,14 @@
     "node" : ">=20.0.0"
     },
   "scripts": {
-    "start": "pm2 start index.js --deep-monitoring --attach --name wabot",
+    "start": "pm2 start index.js --deep-monitoring --attach --name sribot",
     "stop": "pm2 stop sribot",
     "restart": "pm2 restart sribot"
   },
   "author": "WalukaPahan",
   "license": "GPL-3.0 license",
   "dependencies": {
-    "@whiskeysockets/baileys": "github:ds6/bails",
+    "@whiskeysockets/baileys": "6.7.18",
     "@adiwajshing/keyed-db": "^0.2.4",
     "@bochilteam/scraper": "^4.2.4",
     "@brandond/findthelyrics": "^2.0.5",
