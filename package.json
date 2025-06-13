@@ -3,10 +3,6 @@
   "version": "1.0.0",
   "description": "A WhatsApp bot created using Node.js",
   "main": "index.js",
-  "engines" : { 
-    "npm" : ">=9.7.2",
-    "node" : ">=20.0.0"
-    },
   "scripts": {
     "start": "pm2 start index.js --deep-monitoring --attach --name sribot",
     "stop": "pm2 stop sribot",
