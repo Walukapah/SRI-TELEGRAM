@@ -9,7 +9,7 @@ const more = String.fromCharCode(8206);
 const readMore = more.repeat(4001);
 
 cmd({
-  pattern: "menu",
+  pattern: "menu2",
   alias: ["help", "allmenu"],
   use: '.menu',
   desc: "Show all bot commands",
