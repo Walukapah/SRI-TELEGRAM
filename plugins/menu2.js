@@ -150,34 +150,44 @@ async (conn, mek, m, { from, reply }) => {
       case 'text':
         return await conn.sendMessage(from, {
           text: style(menuText)
-        }, { quoted: mek });
+        }, { quoted: srim });
 
       case 'call':
         return await conn.relayMessage(from, {
           viewOnceMessage: {
-            message: {
-              scheduledCallCreationMessage: {
-                scheduledTimestampMs: Date.now(),
-                callType: 1,
-                title: style(menuText)
-              }
-            }
-          }
-        }, {});
+                        message: {
+                            messageContextInfo: {
+                                deviceListMetadataVersion: 2,
+                                deviceListMetadata: {},
+                            },
+                            scheduledCallCreationMessage: {
+                                scheduledTimestampMs: Date.now(),
+                                callType: 1,
+                                title: style(menu)
+                            }
+                        }
+                    }
+                }, { deviceId: "44" });
 
       case 'payment':
         return await conn.relayMessage(from, {
           requestPaymentMessage: {
-            currencyCodeIso4217: 'USD',
-            amount1000: '1000000',
-            requestFrom: m.sender,
-            noteMessage: {
-              extendedTextMessage: {
-                text: style(menuText)
-              }
-            }
-          }
-        }, {});
+                        currencyCodeIso4217: 'INR',
+                        amount1000: '99000',
+                        requestFrom: m.sender.jid,
+                        noteMessage: {
+                            extendedTextMessage: {
+                                text: style(menu)
+                            }
+                        },
+                        expiryTimestamp: '0',
+                        amount: {
+                            value: '99000',
+                            offset: 1000,
+                            currencyCode: 'INR'
+                        },
+                    }
+                }, {});
 
       default:
         return await conn.sendMessage(from, {
