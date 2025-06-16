@@ -14,7 +14,7 @@ cmd({
   alias: ["help", "allmenu"],
   use: '.menu',
   desc: "Show all bot commands",
-  category: "misc",
+  category: "menu",
   react: "📜",
   filename: __filename
 },
@@ -37,7 +37,7 @@ async (conn, mek, m, { from, reply }) => {
     menuText += `┃╭─────────────────\n`;
     menuText += `┃│➛ USER : @${m.sender.split("@")[0]}\n`;
     menuText += `┃│➛ OWNER : ${style(config.OWNER_NAME || "Owner")}\n`;
-    menuText += `┃│➛ PREFIX : [ ${m.prefix} ]\n`;
+    menuText += `┃│➛ PREFIX : [ ${config.PREFIX} ]\n`;
     menuText += `┃│➛ DATE : ${date}\n`;
     menuText += `┃│➛ TIME : ${time}\n`;
     menuText += `┃│➛ UPTIME : ${uptime()}\n`;
@@ -64,7 +64,7 @@ async (conn, mek, m, { from, reply }) => {
         return aCmd.localeCompare(bCmd);
       }).forEach((cmd) => {
         const cmdName = cmd.pattern.toString().split('|')[0].replace(/[^a-zA-Z]/g, '');
-        menuText += `│› ${m.prefix}${style(cmdName)}\n`;
+        menuText += `│› ${config.PREFIX}${style(cmdName)}\n`;
       });
       menuText += `╰─────────────────⦿\n\n`;
     });
