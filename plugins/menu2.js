@@ -35,14 +35,14 @@ async (conn, mek, m, { from, reply }) => {
     // Main menu header
     let menuText = `╭══〘 ${style(config.BOT_NAME || "BOT")} 〙══⊷❙\n`;
     menuText += `┃╭─────────────────\n`;
-    menuText += `┃│➛ 𝗨𝗦𝗘𝗥 : @${m.sender.split("@")[0]}\n`;
-    menuText += `┃│➛ 𝗢𝗪𝗡𝗘𝗥 : ${style(config.OWNER_NAME || "Owner")}\n`;
-    menuText += `┃│➛ 𝗣𝗥𝗘𝗙𝗜𝗫 : [ ${m.prefix} ]\n`;
-    menuText += `┃│➛ 𝗗𝗔𝗧𝗘 : ${date}\n`;
-    menuText += `┃│➛ 𝗧𝗜𝗠𝗘 : ${time}\n`;
-    menuText += `┃│➛ 𝗨𝗣𝗧𝗜𝗠𝗘 : ${uptime()}\n`;
-    menuText += `┃│➛ 𝗖𝗠𝗗𝗦 : ${totalCommands}\n`;
-    menuText += `┃│➛ 𝗩𝗘𝗥𝗦𝗜𝗢𝗡 : ${config.VERSION || "1.0.0"}\n`;
+    menuText += `┃│➛ USER : @${m.sender.split("@")[0]}\n`;
+    menuText += `┃│➛ OWNER : ${style(config.OWNER_NAME || "Owner")}\n`;
+    menuText += `┃│➛ PREFIX : [ ${m.prefix} ]\n`;
+    menuText += `┃│➛ DATE : ${date}\n`;
+    menuText += `┃│➛ TIME : ${time}\n`;
+    menuText += `┃│➛ UPTIME : ${uptime()}\n`;
+    menuText += `┃│➛ CMDS : ${totalCommands}\n`;
+    menuText += `┃│➛ VERSION : ${config.VERSION || "1.0.0"}\n`;
     menuText += `┃╰─────────────────\n`;
     menuText += `╰════════════════⊷❙\n\n${readMore}\n\n`;
 
