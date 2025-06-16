@@ -68,54 +68,84 @@ async (conn, mek, m, { from, reply }) => {
       menuText += `╰─────────────────⦿\n\n`;
     });
 
-    // Context info for all message types
-    const contextInfo = {
-      mentionedJid: [m.sender],
-      externalAdReply: {
-        title: `${config.BOT_NAME || "BOT"} Menu`,
-        body: `Total ${totalCommands} Commands`,
-        thumbnailUrl: config.MENU_IMG_URL || "https://i.imgur.com/W2CaVZW.jpeg",
-        sourceUrl: config.WEBSITE || "https://github.com",
-        mediaType: 1,
-        renderLargerThumbnail: true
-      }
-    };
+    let srim = {
+                "key": {
+                    "participants": "0@s.whatsapp.net",
+                    "remoteJid": "status@broadcast",
+                    "fromMe": false,
+                    "id": "Hey!"
+                },
+                "message": {
+                    "contactMessage": {
+                        "displayName": `${config.BOT_INFO.split(";")[0]}`,
+                        "vcard": `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:y\nitem1.TEL;waid=${m.sender.split('@')[0]}:${m.sender.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                    }
+                },
+                "participant": "0@s.whatsapp.net"
+    }
 
     // Menu type handling
     switch(config.MENU_TYPE.toLowerCase()) {
       case 'big':
         return await conn.sendMessage(from, {
           text: style(menuText),
-          contextInfo: contextInfo
+          contextInfo: {
+              externalAdReply: {
+                  title: style(`Hey ${m.pushName}!`),
+                  body: style(`${config.BOT_INFO.split(";")[0]}`),
+                  sourceUrl: "https://sparky.devstackx.in",
+                  mediaType: 1,
+                  showAdAttribution: true,
+                  renderLargerThumbnail: true,
+                  thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
+              }
+           }
         }, { quoted: mek });
 
       case 'small':
         return await conn.sendMessage(from, {
           text: style(menuText),
           contextInfo: {
-            ...contextInfo,
-            externalAdReply: {
-              ...contextInfo.externalAdReply,
-              renderLargerThumbnail: false
-            }
-          }
-        }, { quoted: mek });
+                        externalAdReply: {
+                            title: style(`Hey ${m.pushName}!`),
+                            body: style(`${config.BOT_INFO.split(";")[0]}`),
+                            sourceUrl: "https://sparky.devstackx.in",
+                            mediaUrl: "https://sparky.devstackx.in",
+                            mediaType: 1,
+                            showAdAttribution: true,
+                            renderLargerThumbnail: false,
+                            thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
+                        }
+                    }
+                }, { quoted: srim });
 
       case 'image':
         return await conn.sendMessage(from, {
-          image: { url: config.MENU_IMG_URL || "https://i.imgur.com/W2CaVZW.jpeg" },
-          caption: style(menuText),
-          contextInfo: contextInfo
+          image: await getBuffer(config.BOT_INFO.split(";")[2]),
+          caption: style(menuText)
         }, { quoted: mek });
 
       case 'document':
         return await conn.sendMessage(from, {
-          document: { url: config.MENU_IMG_URL || "https://i.imgur.com/W2CaVZW.jpeg" },
-          mimetype: 'application/pdf',
-          fileName: `${config.BOT_NAME || "BOT"} Menu.pdf`,
-          caption: style(menuText),
-          contextInfo: contextInfo
-        }, { quoted: mek });
+          document: {
+                        url: 'https://i.ibb.co/pnPNhMZ/2843ad26fd25.jpg'
+                    },
+                    caption: menuText,
+                    mimetype: 'application/zip',
+                    fileName: style(config.BOT_INFO.split(";")[0]),
+                    fileLength: "99999999999",
+                    contextInfo: {
+                        externalAdReply: {
+                            title: style(`Hey ${m.pushName}!`),
+                            body: style(`${config.BOT_INFO.split(";")[0]}`),
+                            sourceUrl: "https://sparky.devstackx.in",
+                            mediaType: 1,
+                            showAdAttribution: true,
+                            renderLargerThumbnail: true,
+                            thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
+                        }
+                    }
+        }, { quoted: srim });
 
       case 'text':
         return await conn.sendMessage(from, {
