@@ -1,3 +1,4 @@
+//BOT_INFO: process.env.BOT_INFO || "X-BOT-MD;ASWIN SPARKY;https://i.imgur.com/r3GZeiX.jpeg",
 const config = require('../config');
 const moment = require('moment-timezone');
 const { cmd, commands } = require('../command');
@@ -106,18 +107,18 @@ async (conn, mek, m, { from, reply }) => {
         return await conn.sendMessage(from, {
           text: style(menuText),
           contextInfo: {
-                        externalAdReply: {
-                            title: style(`Hey ${m.pushName}!`),
-                            body: style(`${config.BOT_INFO.split(";")[0]}`),
-                            sourceUrl: "https://sparky.devstackx.in",
-                            mediaUrl: "https://sparky.devstackx.in",
-                            mediaType: 1,
-                            showAdAttribution: true,
-                            renderLargerThumbnail: false,
-                            thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
-                        }
-                    }
-                }, { quoted: srim });
+              externalAdReply: {
+                  title: style(`Hey ${m.pushName}!`),
+                  body: style(`${config.BOT_INFO.split(";")[0]}`),
+                  sourceUrl: "https://sparky.devstackx.in",
+                  mediaUrl: "https://sparky.devstackx.in",
+                  mediaType: 1,
+                  showAdAttribution: true,
+                  renderLargerThumbnail: false,
+                  thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
+              }
+           }
+        }, { quoted: srim });
 
       case 'image':
         return await conn.sendMessage(from, {
@@ -128,23 +129,23 @@ async (conn, mek, m, { from, reply }) => {
       case 'document':
         return await conn.sendMessage(from, {
           document: {
-                        url: 'https://i.ibb.co/pnPNhMZ/2843ad26fd25.jpg'
-                    },
-                    caption: menuText,
-                    mimetype: 'application/zip',
-                    fileName: style(config.BOT_INFO.split(";")[0]),
-                    fileLength: "99999999999",
-                    contextInfo: {
-                        externalAdReply: {
-                            title: style(`Hey ${m.pushName}!`),
-                            body: style(`${config.BOT_INFO.split(";")[0]}`),
-                            sourceUrl: "https://sparky.devstackx.in",
-                            mediaType: 1,
-                            showAdAttribution: true,
-                            renderLargerThumbnail: true,
-                            thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
-                        }
-                    }
+              url: 'https://i.ibb.co/pnPNhMZ/2843ad26fd25.jpg'
+          },
+            caption: menuText,
+            mimetype: 'application/zip',
+            fileName: style(config.BOT_INFO.split(";")[0]),
+            fileLength: "99999999999",
+            contextInfo: {
+                externalAdReply: {
+                      title: style(`Hey ${m.pushName}!`),
+                      body: style(`${config.BOT_INFO.split(";")[0]}`),
+                      sourceUrl: "https://sparky.devstackx.in",
+                      mediaType: 1,
+                      showAdAttribution: true,
+                      renderLargerThumbnail: true,
+                      thumbnailUrl: `${config.BOT_INFO.split(";")[2]}`
+                  }
+              }
         }, { quoted: srim });
 
       case 'text':
@@ -155,32 +156,32 @@ async (conn, mek, m, { from, reply }) => {
       case 'call':
         return await conn.relayMessage(from, {
           viewOnceMessage: {
-                        message: {
-                            messageContextInfo: {
-                                deviceListMetadataVersion: 2,
-                                deviceListMetadata: {},
-                            },
-                            scheduledCallCreationMessage: {
-                                scheduledTimestampMs: Date.now(),
-                                callType: 1,
-                                title: style(menu)
-                            }
-                        }
-                    }
+                   message: {
+                      messageContextInfo: {
+                          deviceListMetadataVersion: 2,
+                          deviceListMetadata: {},
+                      },
+                      scheduledCallCreationMessage: {
+                          scheduledTimestampMs: Date.now(),
+                          callType: 1,
+                          title: style(menuText)
+                      }
+                  }
+              }
                 }, { deviceId: "44" });
 
       case 'payment':
         return await conn.relayMessage(from, {
           requestPaymentMessage: {
-                        currencyCodeIso4217: 'INR',
-                        amount1000: '99000',
-                        requestFrom: m.sender.jid,
-                        noteMessage: {
-                            extendedTextMessage: {
-                                text: style(menu)
-                            }
-                        },
-                        expiryTimestamp: '0',
+                currencyCodeIso4217: 'INR',
+                amount1000: '99000',
+                requestFrom: m.sender.jid,
+                   noteMessage: {
+                      extendedTextMessage: {
+                      text: style(menuText)
+                        }
+                    },
+                      expiryTimestamp: '0',
                         amount: {
                             value: '99000',
                             offset: 1000,
