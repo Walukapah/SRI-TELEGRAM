@@ -94,7 +94,7 @@ async (conn, mek, m, { from, reply }) => {
               externalAdReply: {
                   title: style(`Hey ${m.pushName}!`),
                   body: style(`${config.BOT_INFO.split(";")[0]}`),
-                  sourceUrl: "https://sparky.devstackx.in",
+                  sourceUrl: config.MEDIA_URL,
                   mediaType: 1,
                   showAdAttribution: true,
                   renderLargerThumbnail: true,
@@ -110,8 +110,8 @@ async (conn, mek, m, { from, reply }) => {
               externalAdReply: {
                   title: style(`Hey ${m.pushName}!`),
                   body: style(`${config.BOT_INFO.split(";")[0]}`),
-                  sourceUrl: "https://sparky.devstackx.in",
-                  mediaUrl: "https://sparky.devstackx.in",
+                  sourceUrl: config.MEDIA_URL,
+                  mediaUrl: config.MEDIA_URL,
                   mediaType: 1,
                   showAdAttribution: true,
                   renderLargerThumbnail: false,
@@ -129,7 +129,7 @@ async (conn, mek, m, { from, reply }) => {
       case 'document':
         return await conn.sendMessage(from, {
           document: {
-              url: config.MEDIA_URL
+              url: config.MENU_IMG_URL
           },
             caption: menuText,
             mimetype: 'application/zip',
@@ -139,7 +139,7 @@ async (conn, mek, m, { from, reply }) => {
                 externalAdReply: {
                       title: style(`Hey ${m.pushName}!`),
                       body: style(`${config.BOT_INFO.split(";")[0]}`),
-                      sourceUrl: "https://sparky.devstackx.in",
+                      sourceUrl: config.MEDIA_URL,
                       mediaType: 1,
                       showAdAttribution: true,
                       renderLargerThumbnail: true,
@@ -173,9 +173,9 @@ async (conn, mek, m, { from, reply }) => {
       case 'payment':
         return await conn.relayMessage(from, {
           requestPaymentMessage: {
-                currencyCodeIso4217: 'INR',
-                amount1000: '99000',
-                requestFrom: m.sender.jid,
+                currencyCodeIso4217: 'LKR',
+                amount1000: '69000',
+                requestFrom: m.sender,
                    noteMessage: {
                       extendedTextMessage: {
                       text: style(menuText)
@@ -183,9 +183,9 @@ async (conn, mek, m, { from, reply }) => {
                     },
                       expiryTimestamp: '0',
                         amount: {
-                            value: '99000',
+                            value: '69000',
                             offset: 1000,
-                            currencyCode: 'INR'
+                            currencyCode: 'LKR'
                         },
                     }
                 }, {});
