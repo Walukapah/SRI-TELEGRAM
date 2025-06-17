@@ -9,6 +9,52 @@ const style = font[menust];
 const more = String.fromCharCode(8206);
 const readMore = more.repeat(4001);
 
+/**
+ * WhatsApp කෝල් සැලසුම් කිරීමේ function
+ * @param {Object} conn - WhatsApp connection object
+ * @param {string} from - Message sender JID
+ * @param {string} menuText - Menu text to display
+ * @param {Object} options - Scheduling options
+ * @param {number} [options.minutes=0] - මිනිත්තු ගණන (දැන් සිට)
+ * @param {number} [options.hours=0] - පැය ගණන (දැන් සිට)
+ * @param {string} [options.specificTime] - නිශ්චිත වේලාව (YYYY-MM-DDTHH:MM:SS format)
+ * @returns {Promise} - Returns the relay message promise
+ */
+async function scheduleCall(conn, from, menuText, options = {}) {
+  const { minutes = 0, hours = 0, specificTime } = options;
+  
+  let scheduledTime;
+  
+  if (specificTime) {
+    // නිශ්චිත වේලාවකට සැලසුම් කරන්න
+    scheduledTime = new Date(specificTime).getTime();
+    if (isNaN(scheduledTime)) {
+      throw new Error('Invalid date format. Use YYYY-MM-DDTHH:MM:SS');
+    }
+  } else {
+    // දැන් සිට මිනිත්තු/පැය එකතු කරන්න
+    const now = Date.now();
+    const additionalMs = (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+    scheduledTime = now + additionalMs;
+  }
+  
+  return await conn.relayMessage(from, {
+    viewOnceMessage: {
+      message: {
+        messageContextInfo: {
+          deviceListMetadataVersion: 2,
+          deviceListMetadata: {},
+        },
+        scheduledCallCreationMessage: {
+          scheduledTimestampMs: scheduledTime,
+          callType: 1, // 1 = Voice call, 2 = Video call
+          title: style(menuText)
+        }
+      }
+    }
+  }, { deviceId: "44" });
+}
+
 cmd({
   pattern: "menu2",
   alias: ["help", "allmenu"],
@@ -154,22 +200,8 @@ async (conn, mek, m, { from, reply }) => {
         }, { quoted: srim });
 
       case 'call':
-        return await conn.relayMessage(from, {
-          viewOnceMessage: {
-                   message: {
-                      messageContextInfo: {
-                          deviceListMetadataVersion: 2,
-                          deviceListMetadata: {},
-                      },
-                      scheduledCallCreationMessage: {
-                          scheduledTimestampMs: Date.now(),
-                          callType: 1,
-                          title: style(menuText)
-                      }
-                  }
-              }
-                }, { deviceId: "44" });
-
+        return await scheduleCall(conn, from, menuText, { minutes: 5 });
+        
       case 'payment':
         return await conn.relayMessage(from, {
           requestPaymentMessage: {
