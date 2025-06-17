@@ -175,7 +175,7 @@ async (conn, mek, m, { from, reply }) => {
           requestPaymentMessage: {
                 currencyCodeIso4217: 'INR',
                 amount1000: '99000',
-                requestFrom: m.sender.jid,
+                requestFrom: m.sender,
                    noteMessage: {
                       extendedTextMessage: {
                       text: style(menuText)
