@@ -59,11 +59,11 @@ async (conn, mek, m, { from, reply }) => {
     Object.keys(categories).sort().forEach((cat) => {
       menuText += `╭───『 ${style(cat.toUpperCase())} 』───⦿\n`;
       categories[cat].sort((a, b) => {
-        const aCmd = a.pattern.toString().split('|')[0].replace(/[^a-zA-Z]/g, '');
-        const bCmd = b.pattern.toString().split('|')[0].replace(/[^a-zA-Z]/g, '');
+        const aCmd = a.pattern.toString().split('|')[0].replace(/[^a-zA-Z0-9]/g, '');
+        const bCmd = b.pattern.toString().split('|')[0].replace(/[^a-zA-Z0-9]/g, '');
         return aCmd.localeCompare(bCmd);
       }).forEach((cmd) => {
-        const cmdName = cmd.pattern.toString().split('|')[0].replace(/[^a-zA-Z]/g, '');
+        const cmdName = cmd.pattern.toString().split('|')[0].replace(/[^a-zA-Z0-9]/g, '');
         menuText += `│› ${config.PREFIX}${(cmdName)}\n`;
       });
       menuText += `╰─────────────────⦿\n\n`;
