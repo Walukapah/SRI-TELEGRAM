@@ -64,7 +64,7 @@ async (conn, mek, m, { from, reply }) => {
         return aCmd.localeCompare(bCmd);
       }).forEach((cmd) => {
         const cmdName = cmd.pattern.toString().split('|')[0].replace(/[^a-zA-Z]/g, '');
-        menuText += `│› ${config.PREFIX}${style(cmdName)}\n`;
+        menuText += `│› ${config.PREFIX}${(cmdName)}\n`;
       });
       menuText += `╰─────────────────⦿\n\n`;
     });
