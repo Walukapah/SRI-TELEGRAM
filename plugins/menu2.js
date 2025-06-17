@@ -129,7 +129,7 @@ async (conn, mek, m, { from, reply }) => {
       case 'document':
         return await conn.sendMessage(from, {
           document: {
-              url: 'https://i.ibb.co/pnPNhMZ/2843ad26fd25.jpg'
+              url: config.MEDIA_URL
           },
             caption: menuText,
             mimetype: 'application/zip',
