@@ -70,15 +70,6 @@ Select a quality by clicking below buttons or type "cancel" to abort.`;
             footer: "Sri-Bot YouTube Downloader",
             buttons: buttons,
             headerType: 4,
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: config.NEWS_LETTER,
-                    newsletterName: config.BOT_NAME,
-                    serverMessageId: -1
-                }
-            }
         }, { quoted: mek });
 
         const collector = conn.ev.on('messages.upsert', async ({ messages }) => {
