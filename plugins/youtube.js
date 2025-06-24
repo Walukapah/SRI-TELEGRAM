@@ -42,23 +42,6 @@ async(conn, mek, m, { from, reply }) => {
             return reply("No video download links available for this video");
         }
 
-        // Create quality selection buttons
-        const buttons = [];
-        videoQualities.forEach((item, index) => {
-            buttons.push({
-                buttonId: `quality_${index}`,
-                buttonText: { displayText: `${item.quality} (${item.resolution}) - ${item.size}` },
-                type: 1
-            });
-        });
-
-        // Add cancel button
-        buttons.push({
-            buttonId: 'cancel',
-            buttonText: { displayText: 'Cancel' },
-            type: 1
-        });
-
         // Create detailed caption
         const caption = `
 🎬 *Title:* ${videoInfo.title}
@@ -68,48 +51,89 @@ async(conn, mek, m, { from, reply }) => {
 💬 *Comments:* ${stats.comments_formatted}
 ⏱️ *Duration:* ${videoInfo.duration_formatted}
 
-*Available Qualities:*`;
+*Available Qualities:*
+${videoQualities.map((item, index) => 
+    `${index+1}. ${item.quality} (${item.resolution}) - ${item.size}`
+).join('\n')}
 
-        // Send thumbnail image with quality selection buttons
-        await conn.sendMessage(from, {
-            image: { url: videoInfo.imagePreviewUrl },
-            caption: caption,
-            footer: "Select a quality to download",
-            buttons: buttons,
-            headerType: 4,
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: config.NEWS_LETTER,
-                    newsletterName: config.BOT_NAME,
-                    serverMessageId: -1
+Reply with the number of the quality you want to download (1-${videoQualities.length}) or type "cancel" to abort.`;
+
+        // First try to send as button message
+        try {
+            // Create quality selection buttons
+            const buttons = [];
+            videoQualities.forEach((item, index) => {
+                buttons.push({
+                    buttonId: `quality_${index}`,
+                    buttonText: { displayText: `${index+1}. ${item.quality} (${item.resolution})` },
+                    type: 1
+                });
+            });
+
+            // Add cancel button
+            buttons.push({
+                buttonId: 'cancel',
+                buttonText: { displayText: '❌ Cancel' },
+                type: 1
+            });
+
+            await conn.sendMessage(from, {
+                image: { url: videoInfo.imagePreviewUrl },
+                caption: caption,
+                footer: "Select a quality to download",
+                buttons: buttons,
+                headerType: 4,
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: config.NEWS_LETTER,
+                        newsletterName: config.BOT_NAME,
+                        serverMessageId: -1
+                    }
                 }
-            }
-        }, { quoted: mek });
+            }, { quoted: mek });
 
-        // Listen for button responses
-        const filter = (m) => m.key.fromMe && m.key.remoteJid === from;
-        const collector = conn.ev.on('messages.upsert', async ({ messages }) => {
-            const response = messages[0];
-            
-            if (response?.message?.buttonsResponseMessage?.selectedButtonId) {
-                const selectedId = response.message.buttonsResponseMessage.selectedButtonId;
+            // Set timeout for button response (2 minutes)
+            setTimeout(() => {
+                conn.sendMessage(from, { text: "Quality selection timed out. Please try again." }, { quoted: mek });
+            }, 120000);
+        } catch (buttonError) {
+            console.error('Button message failed, falling back to text:', buttonError);
+            // If buttons fail, send as regular message
+            await conn.sendMessage(from, {
+                image: { url: videoInfo.imagePreviewUrl },
+                caption: caption,
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: config.NEWS_LETTER,
+                        newsletterName: config.BOT_NAME,
+                        serverMessageId: -1
+                    }
+                }
+            }, { quoted: mek });
+
+            // Listen for text response instead
+            const filter = (m) => !m.key.fromMe && m.key.remoteJid === from;
+            const collector = conn.ev.on('messages.upsert', async ({ messages }) => {
+                const response = messages[0];
+                const text = response?.message?.conversation || '';
                 
-                if (selectedId === 'cancel') {
+                if (text.toLowerCase() === 'cancel') {
                     await conn.sendMessage(from, { text: "Download cancelled" }, { quoted: mek });
                     conn.ev.off('messages.upsert', collector);
                     return;
                 }
                 
-                const qualityIndex = parseInt(selectedId.split('_')[1]);
-                const selectedQuality = videoQualities[qualityIndex];
-                
-                if (!selectedQuality) {
-                    await conn.sendMessage(from, { text: "Invalid selection" }, { quoted: mek });
-                    conn.ev.off('messages.upsert', collector);
+                const selectedNum = parseInt(text);
+                if (isNaN(selectedNum) || selectedNum < 1 || selectedNum > videoQualities.length) {
+                    await conn.sendMessage(from, { text: `Please reply with a number between 1 and ${videoQualities.length} or "cancel"` }, { quoted: mek });
                     return;
                 }
+                
+                const selectedQuality = videoQualities[selectedNum-1];
                 
                 // Remove listener
                 conn.ev.off('messages.upsert', collector);
@@ -134,14 +158,14 @@ async(conn, mek, m, { from, reply }) => {
                         }
                     }
                 });
-            }
-        });
+            });
 
-        // Set timeout for button response (2 minutes)
-        setTimeout(() => {
-            conn.ev.off('messages.upsert', collector);
-            conn.sendMessage(from, { text: "Quality selection timed out. Please try again." }, { quoted: mek });
-        }, 120000);
+            // Set timeout for text response (2 minutes)
+            setTimeout(() => {
+                conn.ev.off('messages.upsert', collector);
+                conn.sendMessage(from, { text: "Quality selection timed out. Please try again." }, { quoted: mek });
+            }, 120000);
+        }
 
     } catch (error) {
         console.error('YouTube download error:', error);
