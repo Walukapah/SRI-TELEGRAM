@@ -35,18 +35,31 @@ async(conn, mek, m, { from, reply }) => {
         const author = data.result.data.author;
         const downloadLinks = data.result.data.download_links.items;
 
-        // Find SD quality video (480p)
-        const sdVideo = downloadLinks.find(item => 
-            item.type === "Video" && 
-            item.quality === "SD" && 
-            item.resolution.includes("480")
-        );
-
-        if (!sdVideo) {
-            return reply("SD quality (480p) video not available. Try another link");
+        // Filter available video qualities
+        const videoQualities = downloadLinks.filter(item => item.type === "Video");
+        
+        if (videoQualities.length === 0) {
+            return reply("No video download links available for this video");
         }
 
-        // Create detailed caption with thumbnail
+        // Create quality selection buttons
+        const buttons = [];
+        videoQualities.forEach((item, index) => {
+            buttons.push({
+                buttonId: `quality_${index}`,
+                buttonText: { displayText: `${item.quality} (${item.resolution}) - ${item.size}` },
+                type: 1
+            });
+        });
+
+        // Add cancel button
+        buttons.push({
+            buttonId: 'cancel',
+            buttonText: { displayText: 'Cancel' },
+            type: 1
+        });
+
+        // Create detailed caption
         const caption = `
 🎬 *Title:* ${videoInfo.title}
 👤 *Author:* ${author.name}
@@ -54,15 +67,16 @@ async(conn, mek, m, { from, reply }) => {
 ❤️ *Likes:* ${stats.likes_formatted}
 💬 *Comments:* ${stats.comments_formatted}
 ⏱️ *Duration:* ${videoInfo.duration_formatted}
-📊 *Quality:* SD (${sdVideo.resolution})
-📦 *Size:* ${sdVideo.size}
 
-> Downloading video... Please wait`;
+*Available Qualities:*`;
 
-        // First send thumbnail image with caption
+        // Send thumbnail image with quality selection buttons
         await conn.sendMessage(from, {
             image: { url: videoInfo.imagePreviewUrl },
             caption: caption,
+            footer: "Select a quality to download",
+            buttons: buttons,
+            headerType: 4,
             contextInfo: {
                 forwardingScore: 1,
                 isForwarded: true,
@@ -74,21 +88,60 @@ async(conn, mek, m, { from, reply }) => {
             }
         }, { quoted: mek });
 
-        // Then send the video
-        await conn.sendMessage(from, {
-            video: { url: sdVideo.url },
-            mimetype: "video/mp4",
-            caption: "> Video downloaded by Sri-Bot",
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: config.NEWS_LETTER,
-                    newsletterName: config.BOT_NAME,
-                    serverMessageId: -1
+        // Listen for button responses
+        const filter = (m) => m.key.fromMe && m.key.remoteJid === from;
+        const collector = conn.ev.on('messages.upsert', async ({ messages }) => {
+            const response = messages[0];
+            
+            if (response?.message?.buttonsResponseMessage?.selectedButtonId) {
+                const selectedId = response.message.buttonsResponseMessage.selectedButtonId;
+                
+                if (selectedId === 'cancel') {
+                    await conn.sendMessage(from, { text: "Download cancelled" }, { quoted: mek });
+                    conn.ev.off('messages.upsert', collector);
+                    return;
                 }
+                
+                const qualityIndex = parseInt(selectedId.split('_')[1]);
+                const selectedQuality = videoQualities[qualityIndex];
+                
+                if (!selectedQuality) {
+                    await conn.sendMessage(from, { text: "Invalid selection" }, { quoted: mek });
+                    conn.ev.off('messages.upsert', collector);
+                    return;
+                }
+                
+                // Remove listener
+                conn.ev.off('messages.upsert', collector);
+                
+                // Send downloading message
+                await conn.sendMessage(from, { 
+                    text: `⬇️ Downloading ${selectedQuality.quality} (${selectedQuality.resolution}) video...\nSize: ${selectedQuality.size}` 
+                }, { quoted: mek });
+                
+                // Send the video
+                await conn.sendMessage(from, {
+                    video: { url: selectedQuality.url },
+                    mimetype: "video/mp4",
+                    caption: `🎥 *${videoInfo.title}*\nQuality: ${selectedQuality.quality} (${selectedQuality.resolution})\nSize: ${selectedQuality.size}\n\nDownloaded by Sri-Bot`,
+                    contextInfo: {
+                        forwardingScore: 1,
+                        isForwarded: true,
+                        forwardedNewsletterMessageInfo: {
+                            newsletterJid: config.NEWS_LETTER,
+                            newsletterName: config.BOT_NAME,
+                            serverMessageId: -1
+                        }
+                    }
+                });
             }
         });
+
+        // Set timeout for button response (2 minutes)
+        setTimeout(() => {
+            conn.ev.off('messages.upsert', collector);
+            conn.sendMessage(from, { text: "Quality selection timed out. Please try again." }, { quoted: mek });
+        }, 120000);
 
     } catch (error) {
         console.error('YouTube download error:', error);
