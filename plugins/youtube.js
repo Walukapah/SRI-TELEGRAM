@@ -4,19 +4,20 @@ const axios = require('axios');
 
 cmd({
     pattern: "youtube",
-    desc: "Download YouTube videos with thumbnail preview",
+    desc: "Download YouTube videos with quality options",
     category: "download",
     filename: __filename
 },
-async (conn, mek, m, { from, reply }) => {
+async(conn, mek, m, { from, reply }) => {
     try {
         const text = m?.message?.conversation || m?.message?.extendedTextMessage?.text || '';
         const url = text.split(' ').slice(1).join(' ').trim();
-
+        
         if (!url) return reply("Please provide a YouTube URL\nExample: .youtube https://youtu.be/xyz");
 
+        // Validate YouTube URL
         if (!/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(url)) {
-            return reply("Invalid YouTube URL. Please provide a valid link.");
+            return reply("Invalid YouTube URL. Please provide a valid link");
         }
 
         await conn.sendMessage(from, { react: { text: '🔄', key: mek.key } });
@@ -24,8 +25,9 @@ async (conn, mek, m, { from, reply }) => {
         const apiUrl = `https://sri-api.vercel.app/download/youtubedl?url=${encodeURIComponent(url)}`;
         const { data } = await axios.get(apiUrl);
 
+        // Check if response is valid
         if (!data?.status || !data?.result?.data?.download_links?.items?.length) {
-            return reply("Failed to get video data from API.");
+            return reply("Failed to get video data from API response");
         }
 
         const videoInfo = data.result.data.video_info;
@@ -33,12 +35,31 @@ async (conn, mek, m, { from, reply }) => {
         const author = data.result.data.author;
         const downloadLinks = data.result.data.download_links.items;
 
+        // Filter only video items (not audio)
         const videoQualities = downloadLinks.filter(item => item.type === "Video");
 
         if (videoQualities.length === 0) {
-            return reply("No video download links available for this video.");
+            return reply("No video download links available for this video");
         }
 
+        // Create quality selection buttons
+        const qualityButtons = videoQualities.map((item, index) => ({
+            buttonId: `quality_${index}`,
+            buttonText: { displayText: `${item.quality} (${item.resolution}) - ${item.size}` },
+            type: 1
+        }));
+
+        // Add audio option if available
+        const audioItem = downloadLinks.find(item => item.type === "Audio" && item.quality === "128K");
+        if (audioItem) {
+            qualityButtons.push({
+                buttonId: 'audio_128k',
+                buttonText: { displayText: `Audio (128K) - ${audioItem.size}` },
+                type: 1
+            });
+        }
+
+        // Create detailed caption
         const caption = `
 🎬 *Title:* ${videoInfo.title}
 👤 *Author:* ${author.name}
@@ -47,83 +68,84 @@ async (conn, mek, m, { from, reply }) => {
 💬 *Comments:* ${stats.comments_formatted}
 ⏱️ *Duration:* ${videoInfo.duration_formatted}
 
-*Available Qualities:*
-${videoQualities.map((item, index) => `${index + 1}. ${item.quality} (${item.resolution}) - ${item.size}`).join('\n')}
+*Available Download Options:*`;
 
-Select a quality by clicking below buttons or type "cancel" to abort.`;
-
-        const buttons = videoQualities.map((item, index) => ({
-            buttonId: `quality_${index}`,
-            buttonText: { displayText: `${index + 1}. ${item.quality} (${item.resolution})` },
-            type: 1
-        }));
-
-        buttons.push({
-            buttonId: 'cancel',
-            buttonText: { displayText: '❌ Cancel' },
-            type: 1
-        });
-
+        // Send thumbnail with quality selection buttons
         await conn.sendMessage(from, {
             image: { url: videoInfo.imagePreviewUrl },
             caption: caption,
-            footer: "Sri-Bot YouTube Downloader",
-            buttons: buttons,
+            footer: "Sri-Bot | Select a quality option",
+            buttons: qualityButtons,
             headerType: 4,
         }, { quoted: mek });
 
-        const collector = conn.ev.on('messages.upsert', async ({ messages }) => {
-            const response = messages[0];
-            if (!response?.message?.buttonsResponseMessage) return;
-            if (response.key.remoteJid !== from) return;
+        // Handle button responses
+        conn.ev.on('messages.upsert', async({ messages }) => {
+            const msg = messages[0];
+            if (msg?.message?.buttonsResponseMessage?.selectedButtonId && 
+                msg.key.remoteJid === from && 
+                msg.key.fromMe === false) {
+                
+                const selectedId = msg.message.buttonsResponseMessage.selectedButtonId;
+                let selectedItem;
+                
+                if (selectedId.startsWith('quality_')) {
+                    const index = parseInt(selectedId.split('_')[1]);
+                    selectedItem = videoQualities[index];
+                } else if (selectedId === 'audio_128k' && audioItem) {
+                    selectedItem = audioItem;
+                }
 
-            const buttonId = response.message.buttonsResponseMessage.selectedButtonId;
+                if (selectedItem) {
+                    await conn.sendMessage(from, { react: { text: '⬇️', key: msg.key } });
+                    
+                    const downloadMsg = `📥 Downloading ${selectedItem.type === "Video" ? 
+                        `video (${selectedItem.resolution})` : 'audio (128K)'}...`;
 
-            if (buttonId === 'cancel') {
-                await conn.sendMessage(from, { text: "Download cancelled." }, { quoted: response });
-                conn.ev.off('messages.upsert', collector);
-                return;
-            }
+                    await conn.sendMessage(from, { text: downloadMsg }, { quoted: msg });
 
-            if (!buttonId.startsWith('quality_')) return;
-
-            const selectedIndex = parseInt(buttonId.replace('quality_', ''));
-            const selectedQuality = videoQualities[selectedIndex];
-
-            if (!selectedQuality) {
-                await conn.sendMessage(from, { text: "Invalid selection, please try again." }, { quoted: response });
-                return;
-            }
-
-            conn.ev.off('messages.upsert', collector);
-
-            await conn.sendMessage(from, {
-                text: `⬇️ Downloading ${selectedQuality.quality} (${selectedQuality.resolution}) video...\nSize: ${selectedQuality.size}`
-            }, { quoted: response });
-
-            await conn.sendMessage(from, {
-                video: { url: selectedQuality.url },
-                mimetype: "video/mp4",
-                caption: `🎥 *${videoInfo.title}*\nQuality: ${selectedQuality.quality} (${selectedQuality.resolution})\nSize: ${selectedQuality.size}\n\nDownloaded by Sri-Bot`,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWS_LETTER,
-                        newsletterName: config.BOT_NAME,
-                        serverMessageId: -1
+                    try {
+                        if (selectedItem.type === "Video") {
+                            await conn.sendMessage(from, {
+                                video: { url: selectedItem.url },
+                                mimetype: "video/mp4",
+                                caption: `📹 *${videoInfo.title}*\n🔄 *Quality:* ${selectedItem.quality} (${selectedItem.resolution})\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by Sri-Bot`,
+                                contextInfo: {
+                                    forwardingScore: 1,
+                                    isForwarded: true,
+                                    forwardedNewsletterMessageInfo: {
+                                        newsletterJid: config.NEWS_LETTER,
+                                        newsletterName: config.BOT_NAME,
+                                        serverMessageId: -1
+                                    }
+                                }
+                            });
+                        } else {
+                            await conn.sendMessage(from, {
+                                audio: { url: selectedItem.url },
+                                mimetype: "audio/mp4",
+                                caption: `🎵 *${videoInfo.title}*\n🔄 *Quality:* ${selectedItem.quality}\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by Sri-Bot`,
+                                contextInfo: {
+                                    forwardingScore: 1,
+                                    isForwarded: true,
+                                    forwardedNewsletterMessageInfo: {
+                                        newsletterJid: config.NEWS_LETTER,
+                                        newsletterName: config.BOT_NAME,
+                                        serverMessageId: -1
+                                    }
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Download error:', error);
+                        await conn.sendMessage(from, { text: "Failed to download. Please try again later." }, { quoted: msg });
                     }
                 }
-            });
+            }
         });
-
-        setTimeout(() => {
-            conn.ev.off('messages.upsert', collector);
-            conn.sendMessage(from, { text: "⏰ Selection timed out. Please try again." }, { quoted: mek });
-        }, 120000);
 
     } catch (error) {
         console.error('YouTube download error:', error);
-        reply("❌ Failed to download video. Try again later.");
+        reply("Failed to process. Please try another link or try again later");
     }
 });
