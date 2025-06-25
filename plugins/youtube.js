@@ -26,13 +26,17 @@ async(conn, mek, m, { from, reply, sender }) => {
         await conn.sendMessage(from, { react: { text: '🔄', key: mek.key } });
 
         const apiUrl = `https://sri-api.vercel.app/download/youtubedl?url=${encodeURIComponent(url)}`;
-        const { data } = await axios.get(apiUrl);
+        const response = await axios.get(apiUrl).catch(err => {
+            console.error('API Error:', err);
+            return { data: null };
+        });
 
-        // Check if response is valid
-        if (!data?.status || !data?.result?.data?.download_links?.items?.length) {
-            return reply("Failed to get video data from API response");
+        // Check if response and data exists
+        if (!response?.data?.status || !response.data?.result?.data?.download_links?.items?.length) {
+            return reply("Failed to get video data from YouTube. Please try another link.");
         }
 
+        const data = response.data;
         const videoInfo = data.result.data.video_info;
         const stats = data.result.data.statistics;
         const author = data.result.data.author;
@@ -52,18 +56,27 @@ async(conn, mek, m, { from, reply, sender }) => {
         const videoQualities = downloadLinks.filter(item => item.type === "Video");
         const audioQualities = downloadLinks.filter(item => item.type === "Audio");
 
+        if (videoQualities.length === 0 && audioQualities.length === 0) {
+            return reply("No download options available for this video.");
+        }
+
         let qualityOptions = "🎬 *Available Download Options:*\n\n";
-        qualityOptions += `📺 *Video Qualities:*\n`;
-        videoQualities.forEach((item, index) => {
-            qualityOptions += `${index+1}. ${item.quality} (${item.resolution || 'N/A'}) - ${item.size}\n`;
-        });
+        
+        if (videoQualities.length > 0) {
+            qualityOptions += `📺 *Video Qualities:*\n`;
+            videoQualities.forEach((item, index) => {
+                qualityOptions += `${index+1}. ${item.quality} (${item.resolution || 'N/A'}) - ${item.size}\n`;
+            });
+        }
 
-        qualityOptions += `\n🎵 *Audio Qualities:*\n`;
-        audioQualities.forEach((item, index) => {
-            qualityOptions += `${videoQualities.length + index + 1}. ${item.quality} - ${item.size}\n`;
-        });
+        if (audioQualities.length > 0) {
+            qualityOptions += `\n🎵 *Audio Qualities:*\n`;
+            audioQualities.forEach((item, index) => {
+                qualityOptions += `${videoQualities.length + index + 1}. ${item.quality} - ${item.size}\n`;
+            });
+        }
 
-        qualityOptions += `\n*Reply with the number* of your preferred quality (e.g. *1* for ${videoQualities[0].quality})`;
+        qualityOptions += `\n*Reply with the number* of your preferred quality (e.g. *1* for ${videoQualities[0]?.quality || audioQualities[0]?.quality})`;
 
         // Send thumbnail with quality options
         await conn.sendMessage(from, {
@@ -100,17 +113,19 @@ const handleReply = async (conn, mek, m, { from, reply, sender }) => {
         // Check if user has an active session
         if (!userSessions[sender] || (Date.now() - userSessions[sender].timestamp) > 300000) { // 5 minute timeout
             delete userSessions[sender];
-            return;
+            return reply("Your session has expired. Please start over with .youtube command.");
         }
 
         const text = m?.message?.conversation || m?.message?.extendedTextMessage?.text || '';
         const selectedOption = parseInt(text.trim());
 
-        if (isNaN(selectedOption) return;
+        if (isNaN(selectedOption)) return;
 
         const session = userSessions[sender];
-        const allOptions = [...session.downloadLinks.filter(item => item.type === "Video"), 
-                          ...session.downloadLinks.filter(item => item.type === "Audio")];
+        const allOptions = [
+            ...(session.downloadLinks.filter(item => item.type === "Video") || []),
+            ...(session.downloadLinks.filter(item => item.type === "Audio") || [])
+        ];
 
         if (selectedOption < 1 || selectedOption > allOptions.length) {
             return reply("Invalid selection. Please reply with a valid number from the options.");
@@ -118,44 +133,53 @@ const handleReply = async (conn, mek, m, { from, reply, sender }) => {
 
         const selectedItem = allOptions[selectedOption - 1];
 
+        if (!selectedItem?.url) {
+            return reply("Error: Selected item is invalid. Please try again.");
+        }
+
         await conn.sendMessage(from, { react: { text: '⏳', key: mek.key } });
 
         // Prepare caption based on type
         const caption = selectedItem.type === "Video" 
-            ? `🎬 *${session.videoInfo.title}*\n📊 *Quality:* ${selectedItem.quality} (${selectedItem.resolution})\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by ${config.BOT_NAME}`
+            ? `🎬 *${session.videoInfo.title}*\n📊 *Quality:* ${selectedItem.quality} (${selectedItem.resolution || 'N/A'})\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by ${config.BOT_NAME}`
             : `🎵 *${session.videoInfo.title}*\n🎧 *Quality:* ${selectedItem.quality}\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by ${config.BOT_NAME}`;
 
-        // Send the selected media
-        if (selectedItem.type === "Video") {
-            await conn.sendMessage(from, {
-                video: { url: selectedItem.url },
-                mimetype: "video/mp4",
-                caption: caption,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWS_LETTER,
-                        newsletterName: config.BOT_NAME,
-                        serverMessageId: -1
+        try {
+            // Send the selected media
+            if (selectedItem.type === "Video") {
+                await conn.sendMessage(from, {
+                    video: { url: selectedItem.url },
+                    mimetype: "video/mp4",
+                    caption: caption,
+                    contextInfo: {
+                        forwardingScore: 1,
+                        isForwarded: true,
+                        forwardedNewsletterMessageInfo: {
+                            newsletterJid: config.NEWS_LETTER,
+                            newsletterName: config.BOT_NAME,
+                            serverMessageId: -1
+                        }
                     }
-                }
-            });
-        } else {
-            await conn.sendMessage(from, {
-                audio: { url: selectedItem.url },
-                mimetype: "audio/mp4",
-                caption: caption,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: config.NEWS_LETTER,
-                        newsletterName: config.BOT_NAME,
-                        serverMessageId: -1
+                });
+            } else {
+                await conn.sendMessage(from, {
+                    audio: { url: selectedItem.url },
+                    mimetype: "audio/mp4",
+                    caption: caption,
+                    contextInfo: {
+                        forwardingScore: 1,
+                        isForwarded: true,
+                        forwardedNewsletterMessageInfo: {
+                            newsletterJid: config.NEWS_LETTER,
+                            newsletterName: config.BOT_NAME,
+                            serverMessageId: -1
+                        }
                     }
-                }
-            });
+                });
+            }
+        } catch (sendError) {
+            console.error('Media sending error:', sendError);
+            reply("Failed to send the media. The download link may have expired. Please try again with a new .youtube command.");
         }
 
         // Clear the session
