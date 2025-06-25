@@ -2,14 +2,16 @@ const config = require('../config');
 const { cmd, commands } = require('../command');
 const axios = require('axios');
 
+// Store user sessions for quality selection
+const userSessions = {};
+
 cmd({
     pattern: "youtube",
-    desc: "Download YouTube videos with quality selection",
+    desc: "Download YouTube videos or audio with quality selection",
     category: "download",
-    use: ".youtube <YouTube URL>",
     filename: __filename
 },
-async(conn, mek, m, { from, reply }) => {
+async(conn, mek, m, { from, reply, sender }) => {
     try {
         const text = m?.message?.conversation || m?.message?.extendedTextMessage?.text || '';
         const url = text.split(' ').slice(1).join(' ').trim();
@@ -36,38 +38,37 @@ async(conn, mek, m, { from, reply }) => {
         const author = data.result.data.author;
         const downloadLinks = data.result.data.download_links.items;
 
-        // Filter video and audio links
+        // Store available options in user session
+        userSessions[sender] = {
+            url: url,
+            downloadLinks: downloadLinks,
+            videoInfo: videoInfo,
+            stats: stats,
+            author: author,
+            timestamp: Date.now()
+        };
+
+        // Create quality options message
         const videoQualities = downloadLinks.filter(item => item.type === "Video");
         const audioQualities = downloadLinks.filter(item => item.type === "Audio");
 
-        if (!videoQualities.length && !audioQualities.length) {
-            return reply("No downloadable content found");
-        }
+        let qualityOptions = "🎬 *Available Download Options:*\n\n";
+        qualityOptions += `📺 *Video Qualities:*\n`;
+        videoQualities.forEach((item, index) => {
+            qualityOptions += `${index+1}. ${item.quality} (${item.resolution || 'N/A'}) - ${item.size}\n`;
+        });
 
-        // Create selection menu
-        let qualityOptions = "";
-        let optionCounter = 1;
-        
-        // Video quality options
-        if (videoQualities.length) {
-            qualityOptions += "🎥 *Video Qualities:*\n";
-            videoQualities.forEach((item, index) => {
-                qualityOptions += `${optionCounter}. ${item.quality} (${item.resolution}) - ${item.size}\n`;
-                optionCounter++;
-            });
-            qualityOptions += "\n";
-        }
+        qualityOptions += `\n🎵 *Audio Qualities:*\n`;
+        audioQualities.forEach((item, index) => {
+            qualityOptions += `${videoQualities.length + index + 1}. ${item.quality} - ${item.size}\n`;
+        });
 
-        // Audio quality options
-        if (audioQualities.length) {
-            qualityOptions += "🎵 *Audio Qualities:*\n";
-            audioQualities.forEach((item, index) => {
-                qualityOptions += `${optionCounter}. ${item.quality} - ${item.size}\n`;
-                optionCounter++;
-            });
-        }
+        qualityOptions += `\n*Reply with the number* of your preferred quality (e.g. *1* for ${videoQualities[0].quality})`;
 
-        const infoMsg = `
+        // Send thumbnail with quality options
+        await conn.sendMessage(from, {
+            image: { url: videoInfo.imagePreviewUrl },
+            caption: `
 🎬 *Title:* ${videoInfo.title}
 👤 *Author:* ${author.name}
 👀 *Views:* ${stats.views_formatted}
@@ -75,109 +76,101 @@ async(conn, mek, m, { from, reply }) => {
 ⏱️ *Duration:* ${videoInfo.duration_formatted}
 
 ${qualityOptions}
-🔽 *Reply with the number of your choice*
-
-${config.FOOTER || "POWERED BY SRI-BOT"}`;
-
-        // Send info message with thumbnail
-        const sentMsg = await conn.sendMessage(
-            from, 
-            { 
-                image: { url: videoInfo.imagePreviewUrl }, 
-                caption: infoMsg 
-            }, 
-            { quoted: mek }
-        );
-
-        const messageID = sentMsg.key.id;
-        await conn.sendMessage(from, { react: { text: '🎬', key: sentMsg.key } });
-
-        // Listen for user reply only once
-        conn.ev.once('messages.upsert', async (messageUpdate) => {
-            try {
-                const mekInfo = messageUpdate?.messages[0];
-                if (!mekInfo?.message) return;
-
-                const messageType = mekInfo?.message?.conversation || mekInfo?.message?.extendedTextMessage?.text;
-                const isReplyToSentMsg = mekInfo?.message?.extendedTextMessage?.contextInfo?.stanzaId === messageID;
-
-                if (!isReplyToSentMsg) return;
-
-                const userChoice = parseInt(messageType.trim());
-                if (isNaN(userChoice) return reply("❌ Please reply with a number from the list");
-
-                const allOptions = [...videoQualities, ...audioQualities];
-                if (userChoice < 1 || userChoice > allOptions.length) {
-                    return reply("❌ Invalid choice. Please select a number from the list");
+            `,
+            contextInfo: {
+                forwardingScore: 1,
+                isForwarded: true,
+                forwardedNewsletterMessageInfo: {
+                    newsletterJid: config.NEWS_LETTER,
+                    newsletterName: config.BOT_NAME,
+                    serverMessageId: -1
                 }
-
-                const selectedItem = allOptions[userChoice - 1];
-                await conn.sendMessage(from, { react: { text: '⏳', key: mek.key } });
-
-                // Create caption for the downloaded media
-                const caption = `
-🎬 *Title:* ${videoInfo.title}
-👤 *Author:* ${author.name}
-📊 *Quality:* ${selectedItem.quality}${selectedItem.resolution ? ` (${selectedItem.resolution})` : ''}
-📦 *Size:* ${selectedItem.size}
-
-${config.FOOTER || "POWERED BY SRI-BOT"}`;
-
-                // Send the selected media
-                if (selectedItem.type === "Video") {
-                    await conn.sendMessage(
-                        from,
-                        {
-                            video: { url: selectedItem.url },
-                            mimetype: "video/mp4",
-                            caption: caption,
-                            contextInfo: {
-                                forwardingScore: 1,
-                                isForwarded: true,
-                                forwardedNewsletterMessageInfo: {
-                                    newsletterJid: '120363165918432989@newsletter',
-                                    newsletterName: 'SRI-BOT 🇱🇰',
-                                    serverMessageId: -1
-                                }
-                            }
-                        },
-                        { quoted: mek }
-                    );
-                } else if (selectedItem.type === "Audio") {
-                    await conn.sendMessage(
-                        from,
-                        {
-                            audio: { url: selectedItem.url },
-                            mimetype: "audio/mpeg",
-                            contextInfo: {
-                                forwardingScore: 1,
-                                isForwarded: true,
-                                forwardedNewsletterMessageInfo: {
-                                    newsletterJid: '120363165918432989@newsletter',
-                                    newsletterName: 'SRI-BOT 🇱🇰',
-                                    serverMessageId: -1
-                                }
-                            }
-                        },
-                        { quoted: mek }
-                    );
-                    await conn.sendMessage(
-                        from,
-                        { text: caption },
-                        { quoted: mek }
-                    );
-                }
-
-                await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
-
-            } catch (error) {
-                console.error('Quality selection error:', error);
-                reply("Failed to process your selection. Please try again");
             }
-        });
+        }, { quoted: mek });
 
     } catch (error) {
         console.error('YouTube download error:', error);
-        reply("Failed to download. Please try another link or try again later");
+        reply("Failed to process your request. Please try again later");
     }
+});
+
+// Listen for user's quality selection
+const handleReply = async (conn, mek, m, { from, reply, sender }) => {
+    try {
+        // Check if user has an active session
+        if (!userSessions[sender] || (Date.now() - userSessions[sender].timestamp) > 300000) { // 5 minute timeout
+            delete userSessions[sender];
+            return;
+        }
+
+        const text = m?.message?.conversation || m?.message?.extendedTextMessage?.text || '';
+        const selectedOption = parseInt(text.trim());
+
+        if (isNaN(selectedOption) return;
+
+        const session = userSessions[sender];
+        const allOptions = [...session.downloadLinks.filter(item => item.type === "Video"), 
+                          ...session.downloadLinks.filter(item => item.type === "Audio")];
+
+        if (selectedOption < 1 || selectedOption > allOptions.length) {
+            return reply("Invalid selection. Please reply with a valid number from the options.");
+        }
+
+        const selectedItem = allOptions[selectedOption - 1];
+
+        await conn.sendMessage(from, { react: { text: '⏳', key: mek.key } });
+
+        // Prepare caption based on type
+        const caption = selectedItem.type === "Video" 
+            ? `🎬 *${session.videoInfo.title}*\n📊 *Quality:* ${selectedItem.quality} (${selectedItem.resolution})\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by ${config.BOT_NAME}`
+            : `🎵 *${session.videoInfo.title}*\n🎧 *Quality:* ${selectedItem.quality}\n📦 *Size:* ${selectedItem.size}\n\n> Downloaded by ${config.BOT_NAME}`;
+
+        // Send the selected media
+        if (selectedItem.type === "Video") {
+            await conn.sendMessage(from, {
+                video: { url: selectedItem.url },
+                mimetype: "video/mp4",
+                caption: caption,
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: config.NEWS_LETTER,
+                        newsletterName: config.BOT_NAME,
+                        serverMessageId: -1
+                    }
+                }
+            });
+        } else {
+            await conn.sendMessage(from, {
+                audio: { url: selectedItem.url },
+                mimetype: "audio/mp4",
+                caption: caption,
+                contextInfo: {
+                    forwardingScore: 1,
+                    isForwarded: true,
+                    forwardedNewsletterMessageInfo: {
+                        newsletterJid: config.NEWS_LETTER,
+                        newsletterName: config.BOT_NAME,
+                        serverMessageId: -1
+                    }
+                }
+            });
+        }
+
+        // Clear the session
+        delete userSessions[sender];
+
+    } catch (error) {
+        console.error('Quality selection error:', error);
+        reply("Failed to process your selection. Please try again.");
+    }
+};
+
+// Add reply handler to commands
+commands.push({
+    on: 'text',
+    fromMe: false,
+    onlyGroups: false,
+    func: handleReply
 });
