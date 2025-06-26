@@ -1,7 +1,7 @@
-const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const config = require('../config');
 const {cmd, commands} = require('../command');
 const axios = require('axios');
+const { delay } = require('@whiskeysockets/baileys');
 
 // Helper functions remain the same
 function replaceYouTubeID(url) {
@@ -48,113 +48,71 @@ cmd({
         const author = data.result.data.author;
         const downloadItems = data.result.data.download_links.items;
 
-        // Create interactive message with buttons
-        const msg = generateWAMessageFromContent(from, {
-            viewOnceMessage: {
-                message: {
-                    interactiveMessage: proto.Message.InteractiveMessage.create({
-                        body: proto.Message.InteractiveMessage.Body.create({
-                            text: `🎥 *YouTube Downloader*\n\n` +
-                                `📌 *Title:* ${videoInfo.title || "Unknown"}\n` +
-                                `⏳ *Duration:* ${videoInfo.duration_formatted || "Unknown"}\n` +
-                                `👀 *Views:* ${stats.views_formatted || "Unknown"}\n` +
-                                `👍 *Likes:* ${stats.likes_formatted || "Unknown"}\n` +
-                                `👤 *Author:* ${author?.name || "Unknown"}`
-                        }),
-                        footer: proto.Message.InteractiveMessage.Footer.create({
-                            text: config.FOOTER || "POWERED BY YOUR BOT NAME"
-                        }),
-                        header: proto.Message.InteractiveMessage.Header.create({
-                            title: "Download Options",
-                            subtitle: "Select quality",
-                            hasMediaAttachment: true
-                        }),
-                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-                            buttons: [
-                                {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({
-                                        title: "Audio Options",
-                                        sections: [{
-                                            title: "Audio Quality",
-                                            highlight_label: "🎵",
-                                            rows: [
-                                                {
-                                                    title: "128kbps (High Quality)",
-                                                    description: "Best audio quality",
-                                                    id: "audio_128"
-                                                },
-                                                {
-                                                    title: "48kbps (Low Quality)",
-                                                    description: "Smaller file size",
-                                                    id: "audio_48"
-                                                }
-                                            ]
-                                        }]
-                                    })
-                                },
-                                {
-                                    name: "single_select",
-                                    buttonParamsJson: JSON.stringify({
-                                        title: "Video Options",
-                                        sections: [{
-                                            title: "Video Quality",
-                                            highlight_label: "🎬",
-                                            rows: [
-                                                {
-                                                    title: "1080p (FHD)",
-                                                    description: "Full HD Quality",
-                                                    id: "video_1080"
-                                                },
-                                                {
-                                                    title: "720p (HD)",
-                                                    description: "HD Quality",
-                                                    id: "video_720"
-                                                },
-                                                {
-                                                    title: "480p (SD)",
-                                                    description: "Standard Quality",
-                                                    id: "video_480"
-                                                },
-                                                {
-                                                    title: "360p",
-                                                    description: "Low Quality",
-                                                    id: "video_360"
-                                                }
-                                            ]
-                                        }]
-                                    })
-                                }
-                            ]
-                        })
-                    })
+        // Create message with buttons (simpler approach to avoid timeout issues)
+        const buttons = [
+            {buttonId: 'yt_audio_128', buttonText: {displayText: '🎵 128kbps'}, type: 1},
+            {buttonId: 'yt_audio_48', buttonText: {displayText: '🎵 48kbps'}, type: 1},
+            {buttonId: 'yt_video_1080', buttonText: {displayText: '📹 1080p'}, type: 1},
+            {buttonId: 'yt_video_720', buttonText: {displayText: '📹 720p'}, type: 1},
+            {buttonId: 'yt_video_480', buttonText: {displayText: '📹 480p'}, type: 1},
+            {buttonId: 'yt_video_360', buttonText: {displayText: '📹 360p'}, type: 1}
+        ];
+
+        const buttonMessage = {
+            image: {url: videoInfo.imagePreviewUrl},
+            caption: `🎥 *YouTube Downloader*\n\n` +
+                `📌 *Title:* ${videoInfo.title || "Unknown"}\n` +
+                `⏳ *Duration:* ${videoInfo.duration_formatted || "Unknown"}\n` +
+                `👀 *Views:* ${stats.views_formatted || "Unknown"}\n` +
+                `👍 *Likes:* ${stats.likes_formatted || "Unknown"}\n` +
+                `👤 *Author:* ${author?.name || "Unknown"}\n\n` +
+                `🔗 *URL:* ${videoInfo.original_url || "Unknown"}\n\n` +
+                `🔽 *Select download option:*`,
+            footer: config.FOOTER || "POWERED BY YOUR BOT",
+            buttons: buttons,
+            headerType: 4
+        };
+
+        // Send message with retry mechanism
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts) {
+            try {
+                await conn.sendMessage(from, buttonMessage, {quoted: m});
+                break;
+            } catch (error) {
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    console.error('Failed after retries:', error);
+                    return await reply("❌ Failed to send options. Please try again later.");
                 }
+                await delay(1000 * attempts); // Wait longer between retries
             }
-        }, { quoted: m });
+        }
 
-        await conn.relayMessage(msg.key.remoteJid, msg.message, { messageId: msg.key.id });
-
-        // Button response handler
-        conn.ev.on('messages.upsert', async (messageUpdate) => {
+        // Button response handler with timeout
+        const responseHandler = async (messageUpdate) => {
             try {
                 const response = messageUpdate.messages[0];
-                if (!response?.message?.interactiveResponseMessage) return;
+                if (!response?.message?.buttonsResponseMessage) return;
                 
-                const buttonId = response.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson;
-                const isResponseToThis = response.key.id === msg.key.id;
+                const buttonId = response.message.buttonsResponseMessage.selectedButtonId;
+                const isResponseToThis = response.key.remoteJid === from && 
+                                       response.key.fromMe === false &&
+                                       response.key.id === m.key.id;
                 
                 if (!isResponseToThis) return;
 
                 let downloadUrl;
                 let type;
-                let fileName = `${videoInfo.title}.${buttonId.startsWith('audio') ? 'm4a' : 'mp4'}`;
+                let fileName = `${videoInfo.title}.${buttonId.includes('audio') ? 'm4a' : 'mp4'}`;
                 
                 const findItem = (type, quality) => 
                     downloadItems.find(item => item.type === type && item.quality === quality);
 
                 switch(buttonId) {
-                    // Audio options
-                    case "audio_128":
+                    case "yt_audio_128":
                         const audio128k = findItem("Audio", "128K");
                         if (!audio128k) return await reply("❌ 128kbps audio not available!");
                         downloadUrl = audio128k.url;
@@ -164,7 +122,7 @@ cmd({
                             fileName: fileName
                         };
                         break;
-                    case "audio_48":
+                    case "yt_audio_48":
                         const audio48k = findItem("Audio", "48K");
                         if (!audio48k) return await reply("❌ 48kbps audio not available!");
                         downloadUrl = audio48k.url;
@@ -174,9 +132,7 @@ cmd({
                             fileName: fileName
                         };
                         break;
-                    
-                    // Video options
-                    case "video_1080":
+                    case "yt_video_1080":
                         const videoFHD = findItem("Video", "FHD");
                         if (!videoFHD) return await reply("❌ 1080p video not available!");
                         downloadUrl = videoFHD.url;
@@ -186,7 +142,7 @@ cmd({
                             fileName: fileName
                         };
                         break;
-                    case "video_720":
+                    case "yt_video_720":
                         const videoHD = findItem("Video", "HD");
                         if (!videoHD) return await reply("❌ 720p video not available!");
                         downloadUrl = videoHD.url;
@@ -196,7 +152,7 @@ cmd({
                             fileName: fileName
                         };
                         break;
-                    case "video_480":
+                    case "yt_video_480":
                         const videoSD = findItem("Video", "SD");
                         if (!videoSD) return await reply("❌ 480p video not available!");
                         downloadUrl = videoSD.url;
@@ -206,7 +162,7 @@ cmd({
                             fileName: fileName
                         };
                         break;
-                    case "video_360":
+                    case "yt_video_360":
                         const video360p = findItem("Video", "SD");
                         if (!video360p) return await reply("❌ 360p video not available!");
                         downloadUrl = video360p.url;
@@ -220,26 +176,33 @@ cmd({
                         return;
                 }
 
-                const sendingMsg = await conn.sendMessage(from, {text: "⏳ Downloading..."}, {quoted: m});
-                await conn.sendMessage(from, type, {quoted: m});
-                await conn.sendMessage(from, {text: '✅ Download Successful ✅', edit: sendingMsg.key});
+                const msg = await reply("⏳ Downloading...");
+                try {
+                    await conn.sendMessage(from, type, {quoted: m});
+                    await conn.sendMessage(from, {text: '✅ Download Successful ✅', edit: msg.key});
+                } catch (error) {
+                    console.error('Download error:', error);
+                    await conn.sendMessage(from, {text: '❌ Download Failed!', edit: msg.key});
+                }
 
                 // Remove the listener after processing
-                conn.ev.off('messages.upsert', arguments.callee);
+                conn.ev.off('messages.upsert', responseHandler);
                 
             } catch (error) {
-                console.error(error);
-                await reply(`❌ *An error occurred while processing:* ${error.message || "Error!"}`);
+                console.error('Button handler error:', error);
+                conn.ev.off('messages.upsert', responseHandler);
             }
-        });
+        };
+
+        conn.ev.on('messages.upsert', responseHandler);
 
         // Set timeout to remove listener if no response
         setTimeout(() => {
-            conn.ev.off('messages.upsert', arguments.callee);
+            conn.ev.off('messages.upsert', responseHandler);
         }, 60000); // 1 minute timeout
 
     } catch (error) {
-        console.error(error);
+        console.error('Command error:', error);
         await reply(`❌ *An error occurred:* ${error.message || "Error!"}`);
     }
 });
