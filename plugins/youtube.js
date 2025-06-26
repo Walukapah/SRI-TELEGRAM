@@ -1,7 +1,9 @@
+const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 const config = require('../config');
 const {cmd, commands} = require('../command');
 const axios = require('axios');
 
+// Helper functions remain the same
 function replaceYouTubeID(url) {
     const regex = /(?:youtube\.com\/(?:.*v=|.*\/)|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
     const match = url.match(regex);
@@ -46,43 +48,100 @@ cmd({
         const author = data.result.data.author;
         const downloadItems = data.result.data.download_links.items;
 
-        let info = `🎥 *𝚈𝙾𝚄𝚃𝚄𝙱𝙴 𝙳𝙾𝚆𝙽𝙻𝙾𝙰𝙳𝙴𝚁* 🎥\n\n` +
-            `📌 *Title:* ${videoInfo.title || "Unknown"}\n` +
-            `⏳ *Duration:* ${videoInfo.duration_formatted || "Unknown"}\n` +
-            `👀 *Views:* ${stats.views_formatted || "Unknown"}\n` +
-            `👍 *Likes:* ${stats.likes_formatted || "Unknown"}\n` +
-            `👤 *Author:* ${author?.name || "Unknown"}\n` +
-            `🔗 *Url:* ${videoInfo.original_url || "Unknown"}\n\n` +
-            `🔽 *Select your preferred download option:*\n` +
-            `${config.FOOTER || "POWERED BY YOUR BOT NAME"}`;
+        // Create interactive message with buttons
+        const msg = generateWAMessageFromContent(from, {
+            viewOnceMessage: {
+                message: {
+                    interactiveMessage: proto.Message.InteractiveMessage.create({
+                        body: proto.Message.InteractiveMessage.Body.create({
+                            text: `🎥 *YouTube Downloader*\n\n` +
+                                `📌 *Title:* ${videoInfo.title || "Unknown"}\n` +
+                                `⏳ *Duration:* ${videoInfo.duration_formatted || "Unknown"}\n` +
+                                `👀 *Views:* ${stats.views_formatted || "Unknown"}\n` +
+                                `👍 *Likes:* ${stats.likes_formatted || "Unknown"}\n` +
+                                `👤 *Author:* ${author?.name || "Unknown"}`
+                        }),
+                        footer: proto.Message.InteractiveMessage.Footer.create({
+                            text: config.FOOTER || "POWERED BY YOUR BOT NAME"
+                        }),
+                        header: proto.Message.InteractiveMessage.Header.create({
+                            title: "Download Options",
+                            subtitle: "Select quality",
+                            hasMediaAttachment: true
+                        }),
+                        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                            buttons: [
+                                {
+                                    name: "single_select",
+                                    buttonParamsJson: JSON.stringify({
+                                        title: "Audio Options",
+                                        sections: [{
+                                            title: "Audio Quality",
+                                            highlight_label: "🎵",
+                                            rows: [
+                                                {
+                                                    title: "128kbps (High Quality)",
+                                                    description: "Best audio quality",
+                                                    id: "audio_128"
+                                                },
+                                                {
+                                                    title: "48kbps (Low Quality)",
+                                                    description: "Smaller file size",
+                                                    id: "audio_48"
+                                                }
+                                            ]
+                                        }]
+                                    })
+                                },
+                                {
+                                    name: "single_select",
+                                    buttonParamsJson: JSON.stringify({
+                                        title: "Video Options",
+                                        sections: [{
+                                            title: "Video Quality",
+                                            highlight_label: "🎬",
+                                            rows: [
+                                                {
+                                                    title: "1080p (FHD)",
+                                                    description: "Full HD Quality",
+                                                    id: "video_1080"
+                                                },
+                                                {
+                                                    title: "720p (HD)",
+                                                    description: "HD Quality",
+                                                    id: "video_720"
+                                                },
+                                                {
+                                                    title: "480p (SD)",
+                                                    description: "Standard Quality",
+                                                    id: "video_480"
+                                                },
+                                                {
+                                                    title: "360p",
+                                                    description: "Low Quality",
+                                                    id: "video_360"
+                                                }
+                                            ]
+                                        }]
+                                    })
+                                }
+                            ]
+                        })
+                    })
+                }
+            }
+        }, { quoted: m });
 
-        const buttons = [
-            {buttonId: 'audio_128', buttonText: {displayText: '🎵 128kbps'}, type: 1},
-            {buttonId: 'audio_48', buttonText: {displayText: '🎵 48kbps'}, type: 1},
-            {buttonId: 'video_1080', buttonText: {displayText: '📹 1080p'}, type: 1},
-            {buttonId: 'video_720', buttonText: {displayText: '📹 720p'}, type: 1},
-            {buttonId: 'video_480', buttonText: {displayText: '📹 480p'}, type: 1},
-            {buttonId: 'video_360', buttonText: {displayText: '📹 360p'}, type: 1}
-        ];
-
-        const buttonMessage = {
-            image: {url: videoInfo.imagePreviewUrl},
-            caption: info,
-            footer: config.FOOTER || 'POWERED BY YOUR BOT NAME',
-            buttons: buttons,
-            headerType: 4
-        };
-
-        await conn.sendMessage(from, buttonMessage, {quoted: mek});
+        await conn.relayMessage(msg.key.remoteJid, msg.message, { messageId: msg.key.id });
 
         // Button response handler
         conn.ev.on('messages.upsert', async (messageUpdate) => {
             try {
                 const response = messageUpdate.messages[0];
-                if (!response?.message?.buttonsResponseMessage) return;
+                if (!response?.message?.interactiveResponseMessage) return;
                 
-                const buttonId = response.message.buttonsResponseMessage.selectedButtonId;
-                const isResponseToThis = response.message.buttonsResponseMessage.contextInfo?.stanzaId === m.key.id;
+                const buttonId = response.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson;
+                const isResponseToThis = response.key.id === msg.key.id;
                 
                 if (!isResponseToThis) return;
 
@@ -148,7 +207,7 @@ cmd({
                         };
                         break;
                     case "video_360":
-                        const video360p = findItem("Video", "SD"); // Assuming SD is 360p
+                        const video360p = findItem("Video", "SD");
                         if (!video360p) return await reply("❌ 360p video not available!");
                         downloadUrl = video360p.url;
                         type = { 
@@ -161,9 +220,9 @@ cmd({
                         return;
                 }
 
-                const msg = await conn.sendMessage(from, {text: "⏳ Downloading..."}, {quoted: mek});
-                await conn.sendMessage(from, type, {quoted: mek});
-                await conn.sendMessage(from, {text: '✅ Download Successful ✅', edit: msg.key});
+                const sendingMsg = await conn.sendMessage(from, {text: "⏳ Downloading..."}, {quoted: m});
+                await conn.sendMessage(from, type, {quoted: m});
+                await conn.sendMessage(from, {text: '✅ Download Successful ✅', edit: sendingMsg.key});
 
                 // Remove the listener after processing
                 conn.ev.off('messages.upsert', arguments.callee);
@@ -181,7 +240,6 @@ cmd({
 
     } catch (error) {
         console.error(error);
-        await conn.sendMessage(from, {react: {text: '❌', key: mek.key}});
         await reply(`❌ *An error occurred:* ${error.message || "Error!"}`);
     }
 });
