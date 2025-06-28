@@ -17,7 +17,8 @@ module.exports = {
     MENU_TYPE: process.env.MENU_TYPE || "big", // Menu style: big, small, image, document, text, call, payment
     MENU_FONT: process.env.MENU_FONT || "tiny", // randomStyle, strikeThrough, wingdings, vaporwave, typewriter, analucia, tildeStrikeThrough, underline, doubleUnderline, slashThrough, sparrow, heartsBetween, arrowBelow, crossAboveBelow, creepify, bubbles, mirror, squares, roundsquares, flip, tiny, createMap, serif_I, manga, ladybug, runes, serif_B, serif_BI, serif_I, fancy1, fancy2, fancy3, fancy4, fancy5, fancy6, fancy7, fancy8, fancy9, fancy10, fancy11, fancy12, fancy13, fancy14, fancy15, fancy16, fancy17, fancy18, fancy19, fancy20, fancy21, fancy22, fancy23, fancy24, fancy25, fancy26, fancy27, fancy28, fancy29, fancy30, fancy31, fancy32, fancy33
     AUTO_READ_STATUS: process.env.AUTO_READ_STATUS || "true",
-    STATUS_SAVE: process.env.STATUS_SAVE || "true",
+    AUTO_REACT_STATUS: process.env.AUTO_REACT_STATUS || "true",
+    AUTO_REACT_STATUS_EMOJI: process.env.AUTO_REACT_STATUS_EMOJI || "❤️",
     NEWS_LETTER: process.env.NEWS_LETTER || "120363165918432989@newsletter",
     MODE: process.env.MODE || "public", // bot modes (public,private,inbox,groups)
     VERSION: process.env.VERSION || "1.0.0", // Added version here
