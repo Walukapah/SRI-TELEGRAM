@@ -129,12 +129,12 @@ const green = "\x1b[32m";
 const blue = "\x1b[34m";
 const cyan = "\x1b[36m";
 const bold = "\x1b[1m";
-
+/**
 console.log(red + "☰".repeat(32) + reset);
 console.log(green + bold + "New Message Detected:" + reset);
 console.log(cyan + JSON.stringify(mek, null, 2) + reset);
 console.log(red + "☰".repeat(32) + reset);
-
+**/
 // Auto mark as seen (දැකියි)
 if (config.MARK_AS_SEEN === 'true') {
     try {
