@@ -112,13 +112,78 @@ console.log('Bot connected to whatsapp ✅')
 })
 conn.ev.on('creds.update', saveCreds)  
 
-conn.ev.on('messages.upsert', async(mek) => {
-mek = mek.messages[0]
-if (!mek.message) return	
-mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
-if (mek.key && mek.key.remoteJid === 'status@broadcast' && config.AUTO_READ_STATUS === "true"){
-await conn.readMessages([mek.key])
+conn.ev.on('messages.upsert', async (mek) => {
+    mek = mek.messages[0];
+    if (!mek.message) return;
+    mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+
+    // Debug log
+    /**
+    console.log("☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰")
+    console.log("New Message Detected:", JSON.stringify(mek, null, 2));
+    console.log("☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰")
+    **/
+const reset = "\x1b[0m";
+const red = "\x1b[31m";
+const green = "\x1b[32m";
+const blue = "\x1b[34m";
+const cyan = "\x1b[36m";
+const bold = "\x1b[1m";
+
+console.log(red + "☰".repeat(32) + reset);
+console.log(green + bold + "New Message Detected:" + reset);
+console.log(cyan + JSON.stringify(mek, null, 2) + reset);
+console.log(red + "☰".repeat(32) + reset);
+
+// Auto mark as seen (දැකියි)
+if (config.MARK_AS_SEEN === 'true') {
+    try {
+        await conn.sendReadReceipt(mek.key.remoteJid, mek.key.id, [mek.key.participant || mek.key.remoteJid]);
+        console.log(green + `Marked message from ${mek.key.remoteJid} as seen.` + reset);
+    } catch (error) {
+        console.error(red + "Error marking message as seen:", error + reset);
+    }
 }
+
+// Auto read messages (කියවීමට ලකුණු කිරීම)
+if (config.READ_MESSAGE === 'true') {
+    try {
+        await conn.readMessages([mek.key]);
+        console.log(green + `Marked message from ${mek.key.remoteJid} as read.` + reset);
+    } catch (error) {
+        console.error(red + "Error marking message as read:", error + reset);
+    }
+}
+
+// Status updates handling
+if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+
+    // Auto read Status
+    if (config.AUTO_READ_STATUS === "true") {
+        try {
+            await conn.readMessages([mek.key]);
+            console.log(green + `Status from ${mek.key.participant || mek.key.remoteJid} marked as read.` + reset);
+        } catch (error) {
+            console.error(red + "Error reading status:", error + reset);
+        }
+    }
+
+    // Auto react to Status
+    if (config.AUTO_REACT_STATUS === "true") {
+        try {
+            await conn.sendMessage(
+                mek.key.participant || mek.key.remoteJid,
+                { react: { text: config.AUTO_REACT_STATUS_EMOJI, key: mek.key } }
+            );
+            console.log(green + `Reacted to status from ${mek.key.participant || mek.key.remoteJid}` + reset);
+        } catch (error) {
+            console.error(red + "Error reacting to status:", error + reset);
+        }
+    }
+
+    return;
+}
+
   const m = sms(conn, mek)
   const type = getContentType(mek.message)
   const content = JSON.stringify(mek.message)
