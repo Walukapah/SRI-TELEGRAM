@@ -15,6 +15,7 @@
     "@adiwajshing/keyed-db": "^0.2.4",
     "@viper-x/fancytext": "^1.0.2",
     "maher-zubair-baileys": "^6.6.5",
+    "node-telegram-bot-api": "^0.66.0",
     "pino": "^7.0.5",
     "pm2": "^5.2.0",
     "util": "^0.12.4",
