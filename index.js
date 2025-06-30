@@ -33,26 +33,51 @@ const axios = require('axios')
 const { File } = require('megajs')
 const prefix = config.PREFIX
 const ownerNumber = config.OWNER_NUMBER
+const { question } = require('readline-sync')
 
 //===================SESSION-AUTH============================
+async function initializeAuth() {
+    const authPath = __dirname + '/auth_info_baileys';
+    
+    // Create auth directory if it doesn't exist
+    if (!fs.existsSync(authPath)) {
+        fs.mkdirSync(authPath, { recursive: true });
+    }
 
-// Use environment variables or fallback
-const phoneNumber = process.env.WA_NUMBER || "94753670175";
+    // Check if credentials exist
+    if (!fs.existsSync(authPath + '/creds.json')) {
+        if (config().status.terminal) {
+            console.log('No existing session found. Starting pairing process...');
+            
+            // First create a temporary connection to request pairing code
+            const tempConn = makeWASocket({
+                printQRInTerminal: false,
+                auth: { creds: {}, keys: {} },
+                version: await fetchLatestBaileysVersion()
+            });
 
-if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
-
-    if (!client.authState.creds.registered) {
-        if (!phoneNumber) {
-            console.error("Phone number not provided. Set WA_NUMBER environment variable.");
+            try {
+                const phoneNumber = await question('/> please enter your WhatsApp number, starting with 94:\n> number: ');
+                const code = await tempConn.requestPairingCode(phoneNumber);
+                console.log(`Your pairing code: ${code}`);
+                
+                // Inform user to enter this code in WhatsApp
+                console.log('Please enter this code in your WhatsApp app under Linked Devices');
+                
+                // Wait for 2 minutes to give user time to pair
+                await new Promise(resolve => setTimeout(resolve, 120000));
+                
+                // Close temporary connection
+                await tempConn.end();
+            } catch (err) {
+                console.error('Error during pairing:', err);
+                throw err;
+            }
+        } else {
+            console.log('No existing session found and terminal interaction is disabled.');
+            console.log('Please start the bot in terminal mode to pair a new device.');
             process.exit(1);
         }
-        
-        client.requestPairingCode(phoneNumber)
-            .then(code => console.log(`your pairing code: ${code}`))
-            .catch(err => {
-                console.error("Error during pairing process:", err);
-                process.exit(1);
-            });
     }
 }
 
