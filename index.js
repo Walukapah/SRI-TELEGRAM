@@ -35,7 +35,12 @@ const axios = require('axios')
 const { File } = require('megajs')
 const prefix = config.PREFIX
 const ownerNumber = config.OWNER_NUMBER
-const readline = require('readline')
+const TelegramBot = require('node-telegram-bot-api')
+
+// Telegram bot setup
+const TELEGRAM_BOT_TOKEN = '7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ';
+const telegramBot = new TelegramBot(TELEGRAM_BOT_TOKEN, {polling: true});
+const activePairingRequests = new Map();
 
 //=================== SESSION MANAGER CLASS ============================
 class SessionManager {
@@ -55,44 +60,60 @@ class SessionManager {
         return await useMultiFileAuthState(sessionPath)
     }
 
-    async createNewSession() {
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        })
-
-        const sessionId = await new Promise(resolve => {
-            rl.question('Enter session name (default: "default"): ', answer => {
-                resolve(answer.trim() || 'default')
-            })
-        })
-
-        const phoneNumber = await new Promise(resolve => {
-            rl.question('Enter WhatsApp number with country code (e.g. 94712345678): ', answer => {
-                resolve(answer.trim())
-            })
-        })
-
-        rl.close()
-
+    async createNewSession(sessionId, phoneNumber, telegramUserId) {
         const { state, saveCreds } = await this.getAuthState(sessionId)
+        const { version } = await fetchLatestBaileysVersion()
+        
         const conn = makeWASocket({
             logger: P({ level: 'silent' }),
-            printQRInTerminal: true,
+            printQRInTerminal: false,
             browser: Browsers.macOS("Chrome"),
-            auth: state
+            auth: state,
+            version
         })
 
         if (!conn.authState.creds.registered) {
             const code = await conn.requestPairingCode(phoneNumber)
-            console.log(`\nPairing code for session "${sessionId}": ${code}\n`)
             
-            await new Promise(resolve => {
+            // Send pairing code to Telegram user
+            await telegramBot.sendMessage(
+                telegramUserId, 
+                `🔐 *Pairing Code for ${phoneNumber}*:\n\n` +
+                `\`${code}\`\n\n` +
+                `This code will expire in 30 seconds.`,
+                { parse_mode: 'Markdown' }
+            )
+            
+            // Store the active pairing request
+            activePairingRequests.set(telegramUserId, {
+                sessionId,
+                phoneNumber,
+                conn,
+                saveCreds,
+                timestamp: Date.now()
+            })
+            
+            // Set timeout to clear the request after 30 seconds
+            setTimeout(() => {
+                if (activePairingRequests.has(telegramUserId)) {
+                    activePairingRequests.delete(telegramUserId)
+                    telegramBot.sendMessage(
+                        telegramUserId, 
+                        `⏳ Pairing code for ${phoneNumber} has expired. Please try again.`
+                    )
+                }
+            }, 30000)
+            
+            return new Promise((resolve, reject) => {
                 conn.ev.on('creds.update', saveCreds)
                 conn.ev.on('connection.update', update => {
                     if (update.connection === 'open') {
-                        console.log(`Session "${sessionId}" paired successfully!`)
-                        resolve()
+                        activePairingRequests.delete(telegramUserId)
+                        telegramBot.sendMessage(
+                            telegramUserId, 
+                            `✅ Session "${sessionId}" paired successfully with ${phoneNumber}!`
+                        )
+                        resolve(sessionId)
                     }
                 })
             })
@@ -107,68 +128,138 @@ class SessionManager {
         })
     }
 
-    async selectSession() {
+    async getSessionByUser(telegramUserId) {
         const sessions = this.listSessions()
-        
-        if (sessions.length === 0) {
-            console.log('No existing sessions found.')
-            return await this.createNewSession()
-        }
-
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        })
-
-        console.log('\nAvailable sessions:')
-        sessions.forEach((session, index) => {
-            console.log(`${index + 1}. ${session}`)
-        })
-
-        const choice = await new Promise(resolve => {
-            rl.question('Select session (number) or "new" to create: ', answer => {
-                resolve(answer.trim())
-            })
-        })
-
-        rl.close()
-
-        if (choice.toLowerCase() === 'new') {
-            return await this.createNewSession()
-        }
-
-        const index = parseInt(choice) - 1
-        if (isNaN(index) || index < 0 || index >= sessions.length) {
-            console.log('Invalid selection, using default session')
-            return 'default'
-        }
-
-        return sessions[index]
+        const userSession = sessions.find(session => session.startsWith(`user_${telegramUserId}_`))
+        return userSession || null
     }
 
-    async loadConfigSession() {
-        if (config.SESSION_ID) {
-            if (config.SESSION_ID.startsWith('base64:')) {
-                const sessionData = Buffer.from(config.SESSION_ID.replace('base64:', ''), 'base64').toString('utf-8')
-                const sessionPath = path.join(this.sessionsDir, 'config_session')
-                this.ensureSessionsDir()
-                fs.writeFileSync(path.join(sessionPath, 'creds.json'), sessionData)
-                return 'config_session'
-            }
-            return config.SESSION_ID
+    async deleteSession(sessionId) {
+        const sessionPath = path.join(this.sessionsDir, sessionId)
+        if (fs.existsSync(sessionPath)) {
+            fs.rmSync(sessionPath, { recursive: true })
+            return true
         }
-        return null
+        return false
     }
 }
 
+// Initialize session manager
+const sessionManager = new SessionManager()
+
+// Telegram bot commands
+telegramBot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    telegramBot.sendMessage(
+        chatId,
+        `👋 *WhatsApp Bot Pairing System*\n\n` +
+        `Available commands:\n` +
+        `/pair [number] - Pair a WhatsApp number (e.g., /pair 94712345678)\n` +
+        `/mysession - View your active session\n` +
+        `/deletesession - Delete your current session`,
+        { parse_mode: 'Markdown' }
+    );
+});
+
+telegramBot.onText(/\/pair (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const phoneNumber = match[1].trim();
+    
+    // Validate phone number
+    if (!/^\d+$/.test(phoneNumber)) {
+        return telegramBot.sendMessage(chatId, '❌ Invalid phone number. Please provide only digits (e.g., /pair 94712345678)');
+    }
+    
+    // Check if user already has an active pairing request
+    if (activePairingRequests.has(chatId)) {
+        return telegramBot.sendMessage(chatId, '❌ You already have an active pairing request. Please wait for it to complete or expire.');
+    }
+    
+    // Check if user already has a session
+    const existingSession = await sessionManager.getSessionByUser(chatId);
+    if (existingSession) {
+        return telegramBot.sendMessage(
+            chatId,
+            `⚠️ You already have an active session: ${existingSession}\n\n` +
+            `Use /deletesession first if you want to pair a new number.`
+        );
+    }
+    
+    // Create new session
+    const sessionId = `user_${chatId}_${Date.now()}`;
+    
+    try {
+        telegramBot.sendMessage(chatId, `⏳ Generating pairing code for ${phoneNumber}...`);
+        await sessionManager.createNewSession(sessionId, phoneNumber, chatId);
+    } catch (error) {
+        console.error('Pairing error:', error);
+        telegramBot.sendMessage(chatId, '❌ Failed to create pairing session. Please try again.');
+    }
+});
+
+telegramBot.onText(/\/mysession/, async (msg) => {
+    const chatId = msg.chat.id;
+    const session = await sessionManager.getSessionByUser(chatId);
+    
+    if (session) {
+        telegramBot.sendMessage(
+            chatId,
+            `🔍 *Your Active Session*\n\n` +
+            `Session ID: \`${session}\`\n` +
+            `Created: ${new Date(parseInt(session.split('_')[2])).toLocaleString()}\n\n` +
+            `Use /deletesession to remove this pairing.`,
+            { parse_mode: 'Markdown' }
+        );
+    } else {
+        telegramBot.sendMessage(
+            chatId,
+            `❌ You don't have an active WhatsApp session.\n\n` +
+            `Use /pair [number] to create one.`
+        );
+    }
+});
+
+telegramBot.onText(/\/deletesession/, async (msg) => {
+    const chatId = msg.chat.id;
+    const session = await sessionManager.getSessionByUser(chatId);
+    
+    if (session) {
+        const deleted = await sessionManager.deleteSession(session);
+        if (deleted) {
+            telegramBot.sendMessage(
+                chatId,
+                `✅ Successfully deleted session: ${session}\n\n` +
+                `You can now pair a new number with /pair [number]`
+            );
+        } else {
+            telegramBot.sendMessage(chatId, '❌ Failed to delete session. Please try again.');
+        }
+    } else {
+        telegramBot.sendMessage(chatId, '❌ You don\'t have an active session to delete.');
+    }
+});
+
 //=================== MAIN CONNECTION FUNCTION ============================
 async function connectToWA() {
-    const sessionManager = new SessionManager()
+    // Check if we should use a specific session from config
+    if (config.SESSION_ID) {
+        console.log(`Initializing configured session: ${config.SESSION_ID}...`);
+        return await initializeWhatsAppConnection(config.SESSION_ID);
+    }
     
-    // Load session from config or prompt user
-    let sessionId = await sessionManager.loadConfigSession() || await sessionManager.selectSession()
+    // Otherwise, look for any existing sessions
+    const sessions = sessionManager.listSessions();
+    if (sessions.length > 0) {
+        // For this implementation, we'll just use the first session found
+        // In a real multi-user system, you'd need a way to determine which session to use
+        console.log(`Initializing existing session: ${sessions[0]}...`);
+        return await initializeWhatsAppConnection(sessions[0]);
+    }
     
-    console.log(`Initializing session: ${sessionId}...`)
+    console.log('No WhatsApp sessions found. Waiting for pairing via Telegram...');
+}
+
+async function initializeWhatsAppConnection(sessionId) {
     const { state, saveCreds } = await sessionManager.getAuthState(sessionId)
 
     const { version } = await fetchLatestBaileysVersion()
@@ -221,196 +312,169 @@ async function connectToWA() {
     // Credentials update handler
     conn.ev.on('creds.update', saveCreds)  
 
-conn.ev.on('messages.upsert', async (mek) => {
-    mek = mek.messages[0];
-    if (!mek.message) return;
-    mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+    conn.ev.on('messages.upsert', async (mek) => {
+        mek = mek.messages[0];
+        if (!mek.message) return;
+        mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
-    // Debug log
-    /**
-    console.log("☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰")
-    console.log("New Message Detected:", JSON.stringify(mek, null, 2));
-    console.log("☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰☰")
-    **/
-const reset = "\x1b[0m";
-const red = "\x1b[31m";
-const green = "\x1b[32m";
-const blue = "\x1b[34m";
-const cyan = "\x1b[36m";
-const bold = "\x1b[1m";
-/**
-console.log(red + "☰".repeat(32) + reset);
-console.log(green + bold + "New Message Detected:" + reset);
-console.log(cyan + JSON.stringify(mek, null, 2) + reset);
-console.log(red + "☰".repeat(32) + reset);
-**/
-// Auto mark as seen (දැකියි)
-if (config.MARK_AS_SEEN === 'true') {
-    try {
-        await conn.sendReadReceipt(mek.key.remoteJid, mek.key.id, [mek.key.participant || mek.key.remoteJid]);
-        console.log(green + `Marked message from ${mek.key.remoteJid} as seen.` + reset);
-    } catch (error) {
-        console.error(red + "Error marking message as seen:", error + reset);
-    }
-}
-
-// Auto read messages (කියවීමට ලකුණු කිරීම)
-if (config.READ_MESSAGE === 'true') {
-    try {
-        await conn.readMessages([mek.key]);
-        console.log(green + `Marked message from ${mek.key.remoteJid} as read.` + reset);
-    } catch (error) {
-        console.error(red + "Error marking message as read:", error + reset);
-    }
-}
-
-// Status updates handling
-if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-
-    // Auto read Status
-    if (config.AUTO_READ_STATUS === "true") {
-        try {
-            await conn.readMessages([mek.key]);
-            console.log(green + `Status from ${mek.key.participant || mek.key.remoteJid} marked as read.` + reset);
-        } catch (error) {
-            console.error(red + "Error reading status:", error + reset);
+        const reset = "\x1b[0m";
+        const red = "\x1b[31m";
+        const green = "\x1b[32m";
+        const blue = "\x1b[34m";
+        const cyan = "\x1b[36m";
+        const bold = "\x1b[1m";
+        
+        // Auto mark as seen (දැකියි)
+        if (config.MARK_AS_SEEN === 'true') {
+            try {
+                await conn.sendReadReceipt(mek.key.remoteJid, mek.key.id, [mek.key.participant || mek.key.remoteJid]);
+                console.log(green + `Marked message from ${mek.key.remoteJid} as seen.` + reset);
+            } catch (error) {
+                console.error(red + "Error marking message as seen:", error + reset);
+            }
         }
-    }
 
-    // Auto react to Status
-    if (config.AUTO_REACT_STATUS === "true") {
-        try {
-            await conn.sendMessage(
-                mek.key.participant || mek.key.remoteJid,
-                { react: { text: config.AUTO_REACT_STATUS_EMOJI, key: mek.key } }
-            );
-            console.log(green + `Reacted to status from ${mek.key.participant || mek.key.remoteJid}` + reset);
-        } catch (error) {
-            console.error(red + "Error reacting to status:", error + reset);
+        // Auto read messages (කියවීමට ලකුණු කිරීම)
+        if (config.READ_MESSAGE === 'true') {
+            try {
+                await conn.readMessages([mek.key]);
+                console.log(green + `Marked message from ${mek.key.remoteJid} as read.` + reset);
+            } catch (error) {
+                console.error(red + "Error marking message as read:", error + reset);
+            }
         }
-    }
 
-    return;
-}
-
-  const m = sms(conn, mek)
-  const type = getContentType(mek.message)
-  const content = JSON.stringify(mek.message)
-  const from = mek.key.remoteJid
-  const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
-  const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
-  const isCmd = body.startsWith(prefix)
-  var budy = typeof mek.text == 'string' ? mek.text : false;
-  const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
-  const args = body.trim().split(/ +/).slice(1)
-  const q = args.join(' ')
-  const text = args.join(' ')
-  const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us')
-
-// Then use:
-const isGroup = isGroupJid(from)
-  const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid)
-  const senderNumber = sender.split('@')[0]
-  const botNumber = conn.user.id.split(':')[0]
-  const pushname = mek.pushName || 'Sin Nombre'
-  const isMe = botNumber.includes(senderNumber)
-  const isOwner = ownerNumber.includes(senderNumber) || isMe
-  const botNumber2 = await jidNormalizedUser(conn.user.id);
-  const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : ''
-  const groupName = isGroup ? groupMetadata.subject : ''
-  const participants = isGroup ? await groupMetadata.participants : ''
-  const groupAdmins = isGroup ? await getGroupAdmins(participants) : ''
-  const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false
-  const isAdmins = isGroup ? groupAdmins.includes(sender) : false
-  const isReact = m.message.reactionMessage ? true : false
-  const reply = (teks) => {
-  conn.sendMessage(from, { text: teks }, { quoted: mek })
-  }
-
-conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
-              let mime = '';
-              let res = await axios.head(url)
-              mime = res.headers['content-type']
-              if (mime.split("/")[1] === "gif") {
-                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, gifPlayback: true, ...options }, { quoted: quoted, ...options })
-              }
-              let type = mime.split("/")[0] + "Message"
-              if (mime === "application/pdf") {
-                return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: caption, ...options }, { quoted: quoted, ...options })
-              }
-              if (mime.split("/")[0] === "image") {
-                return conn.sendMessage(jid, { image: await getBuffer(url), caption: caption, ...options }, { quoted: quoted, ...options })
-              }
-              if (mime.split("/")[0] === "video") {
-                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options })
-              }
-              if (mime.split("/")[0] === "audio") {
-                return conn.sendMessage(jid, { audio: await getBuffer(url), caption: caption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options })
-              }
+        // Status updates handling
+        if (mek.key && mek.key.remoteJid === 'status@broadcast') {
+            // Auto read Status
+            if (config.AUTO_READ_STATUS === "true") {
+                try {
+                    await conn.readMessages([mek.key]);
+                    console.log(green + `Status from ${mek.key.participant || mek.key.remoteJid} marked as read.` + reset);
+                } catch (error) {
+                    console.error(red + "Error reading status:", error + reset);
+                }
             }
 
-//========== WORK TYPE ============ 
-// index.js (සංශෝධිත)
-if (config.MODE === "private" && !isOwner) return;
-if (config.MODE === "inbox" && isGroup) return;
-if (config.MODE === "groups" && !isGroup) return;
-    
+            // Auto react to Status
+            if (config.AUTO_REACT_STATUS === "true") {
+                try {
+                    await conn.sendMessage(
+                        mek.key.participant || mek.key.remoteJid,
+                        { react: { text: config.AUTO_REACT_STATUS_EMOJI, key: mek.key } }
+                    );
+                    console.log(green + `Reacted to status from ${mek.key.participant || mek.key.remoteJid}` + reset);
+                } catch (error) {
+                    console.error(red + "Error reacting to status:", error + reset);
+                }
+            }
 
-//=================REACT_MESG========================================================================
-if(senderNumber.includes("94753670175")){
-if(isReact) return
-m.react("👑")
-}
+            return;
+        }
 
-if(senderNumber.includes("94756209082")){
-if(isReact) return
-m.react("🍆")
-}
+        const m = sms(conn, mek)
+        const type = getContentType(mek.message)
+        const content = JSON.stringify(mek.message)
+        const from = mek.key.remoteJid
+        const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
+        const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
+        const isCmd = body.startsWith(prefix)
+        var budy = typeof mek.text == 'string' ? mek.text : false;
+        const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
+        const args = body.trim().split(/ +/).slice(1)
+        const q = args.join(' ')
+        const text = args.join(' ')
+        const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us')
 
-//================publicreact with random emoji
- 
-//const emojis = ["🌟", "🔥", "❤️", "🎉", "💞"];
-//if (!isReact) {
-//  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-//  m.react(randomEmoji);
-//}
+        const isGroup = isGroupJid(from)
+        const sender = mek.key.fromMe ? (conn.user.id.split(':')[0]+'@s.whatsapp.net' || conn.user.id) : (mek.key.participant || mek.key.remoteJid)
+        const senderNumber = sender.split('@')[0]
+        const botNumber = conn.user.id.split(':')[0]
+        const pushname = mek.pushName || 'Sin Nombre'
+        const isMe = botNumber.includes(senderNumber)
+        const isOwner = ownerNumber.includes(senderNumber) || isMe
+        const botNumber2 = await jidNormalizedUser(conn.user.id);
+        const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : ''
+        const groupName = isGroup ? groupMetadata.subject : ''
+        const participants = isGroup ? await groupMetadata.participants : ''
+        const groupAdmins = isGroup ? await getGroupAdmins(participants) : ''
+        const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false
+        const isAdmins = isGroup ? groupAdmins.includes(sender) : false
+        const isReact = m.message.reactionMessage ? true : false
+        const reply = (teks) => {
+        conn.sendMessage(from, { text: teks }, { quoted: mek })
+        }
 
-//==========================
+        conn.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
+            let mime = '';
+            let res = await axios.head(url)
+            mime = res.headers['content-type']
+            if (mime.split("/")[1] === "gif") {
+                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, gifPlayback: true, ...options }, { quoted: quoted, ...options })
+            }
+            let type = mime.split("/")[0] + "Message"
+            if (mime === "application/pdf") {
+                return conn.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: caption, ...options }, { quoted: quoted, ...options })
+            }
+            if (mime.split("/")[0] === "image") {
+                return conn.sendMessage(jid, { image: await getBuffer(url), caption: caption, ...options }, { quoted: quoted, ...options })
+            }
+            if (mime.split("/")[0] === "video") {
+                return conn.sendMessage(jid, { video: await getBuffer(url), caption: caption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options })
+            }
+            if (mime.split("/")[0] === "audio") {
+                return conn.sendMessage(jid, { audio: await getBuffer(url), caption: caption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options })
+            }
+        }
 
-    
-const events = require('./command')
-const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
-if (isCmd) {
-const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
-if (cmd) {
-if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }})
+        //========== WORK TYPE ============ 
+        if (config.MODE === "private" && !isOwner) return;
+        if (config.MODE === "inbox" && isGroup) return;
+        if (config.MODE === "groups" && !isGroup) return;
+            
+        //=================REACT_MESG========================================================================
+        if(senderNumber.includes("94753670175")){
+            if(isReact) return
+            m.react("👑")
+        }
 
-try {
-cmd.function(conn, mek, m,{from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
-} catch (e) {
-console.error("[PLUGIN ERROR] " + e);
-}
-}
-}
-events.commands.map(async(command) => {
-if (body && command.on === "body") {
-command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
-} else if (mek.q && command.on === "text") {
-command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
-} else if (
-(command.on === "image" || command.on === "photo") &&
-mek.type === "imageMessage"
-) {
-command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
-} else if (
-command.on === "sticker" &&
-mek.type === "stickerMessage"
-) {
-command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
-}});
-//============================================================================ 
+        if(senderNumber.includes("94756209082")){
+            if(isReact) return
+            m.react("🍆")
+        }
+            
+        const events = require('./command')
+        const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
+        if (isCmd) {
+            const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
+            if (cmd) {
+                if (cmd.react) conn.sendMessage(from, { react: { text: cmd.react, key: mek.key }})
 
-})
+                try {
+                    cmd.function(conn, mek, m,{from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply});
+                } catch (e) {
+                    console.error("[PLUGIN ERROR] " + e);
+                }
+            }
+        }
+        events.commands.map(async(command) => {
+            if (body && command.on === "body") {
+                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+            } else if (mek.q && command.on === "text") {
+                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+            } else if (
+                (command.on === "image" || command.on === "photo") &&
+                mek.type === "imageMessage"
+            ) {
+                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+            } else if (
+                command.on === "sticker" &&
+                mek.type === "stickerMessage"
+            ) {
+                command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+            }
+        });
+    })
 }
 
 //=================== EXPRESS SERVER ============================
