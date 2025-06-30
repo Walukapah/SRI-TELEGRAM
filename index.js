@@ -60,7 +60,7 @@ class SessionManager {
         return await useMultiFileAuthState(sessionPath)
     }
 
-    async createNewSession(sessionId, phoneNumber, telegramUserId) {
+    async createNewSession(sessionId, phoneNumber, telegramUserId, customPair = null) {
         const { state, saveCreds } = await this.getAuthState(sessionId)
         const { version } = await fetchLatestBaileysVersion()
         
@@ -73,14 +73,28 @@ class SessionManager {
         })
 
         if (!conn.authState.creds.registered) {
-            const code = await conn.requestPairingCode(phoneNumber)
+            let code;
+            let pairingMessage;
+            
+            if (customPair) {
+                // Custom pairing
+                code = await conn.requestPairingCode(phoneNumber, customPair);
+                pairingMessage = `🔐 *Custom Pairing Code for ${phoneNumber}*:\n\n` +
+                                `Pairing Code: \`${code}\`\n` +
+                                `Custom Pair: \`${customPair}\`\n\n` +
+                                `This code will expire in 30 seconds.`;
+            } else {
+                // Normal pairing
+                code = await conn.requestPairingCode(phoneNumber);
+                pairingMessage = `🔐 *Pairing Code for ${phoneNumber}*:\n\n` +
+                              `\`${code}\`\n\n` +
+                              `This code will expire in 30 seconds.`;
+            }
             
             // Send pairing code to Telegram user
             await telegramBot.sendMessage(
                 telegramUserId, 
-                `🔐 *Pairing Code for ${phoneNumber}*:\n\n` +
-                `\`${code}\`\n\n` +
-                `This code will expire in 30 seconds.`,
+                pairingMessage,
                 { parse_mode: 'Markdown' }
             )
             
@@ -90,7 +104,9 @@ class SessionManager {
                 phoneNumber,
                 conn,
                 saveCreds,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                isCustomPairing: !!customPair,
+                customPair
             })
             
             // Set timeout to clear the request after 30 seconds
@@ -109,10 +125,11 @@ class SessionManager {
                 conn.ev.on('connection.update', update => {
                     if (update.connection === 'open') {
                         activePairingRequests.delete(telegramUserId)
-                        telegramBot.sendMessage(
-                            telegramUserId, 
-                            `✅ Session "${sessionId}" paired successfully with ${phoneNumber}!`
-                        )
+                        const successMessage = customPair ?
+                            `✅ Session "${sessionId}" paired successfully with ${phoneNumber} using custom pairing!` :
+                            `✅ Session "${sessionId}" paired successfully with ${phoneNumber}!`;
+                        
+                        telegramBot.sendMessage(telegramUserId, successMessage)
                         resolve(sessionId)
                     }
                 })
@@ -144,6 +161,16 @@ class SessionManager {
     }
 }
 
+// Helper function to generate custom 8-character alphanumeric pair code
+function generateCustomPairCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
 // Initialize session manager
 const sessionManager = new SessionManager()
 
@@ -154,7 +181,8 @@ telegramBot.onText(/\/start/, (msg) => {
         chatId,
         `👋 *WhatsApp Bot Pairing System*\n\n` +
         `Available commands:\n` +
-        `/pair [number] - Pair a WhatsApp number (e.g., /pair 94712345678)\n` +
+        `/pair [number] - Normal pairing (e.g., /pair 94712345678)\n` +
+        `/pair [number] [code] - Custom pairing (e.g., /pair 94712345678 AB123C4D)\n` +
         `/mysession - View your active session\n` +
         `/deletesession - Delete your current session`,
         { parse_mode: 'Markdown' }
@@ -163,11 +191,26 @@ telegramBot.onText(/\/start/, (msg) => {
 
 telegramBot.onText(/\/pair (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const phoneNumber = match[1].trim();
+    const input = match[1].trim();
+    
+    // Parse input (could be just number or number + custom pair)
+    let phoneNumber, customPair;
+    if (input.includes(' ')) {
+        const parts = input.split(' ');
+        phoneNumber = parts[0];
+        customPair = parts[1];
+    } else {
+        phoneNumber = input;
+    }
     
     // Validate phone number
     if (!/^\d+$/.test(phoneNumber)) {
         return telegramBot.sendMessage(chatId, '❌ Invalid phone number. Please provide only digits (e.g., /pair 94712345678)');
+    }
+    
+    // Validate custom pair if provided
+    if (customPair && !/^[A-Z0-9]{8}$/.test(customPair)) {
+        return telegramBot.sendMessage(chatId, '❌ Custom pair must be exactly 8 alphanumeric characters (e.g., AB123C4D)');
     }
     
     // Check if user already has an active pairing request
@@ -190,7 +233,7 @@ telegramBot.onText(/\/pair (.+)/, async (msg, match) => {
     
     try {
         telegramBot.sendMessage(chatId, `⏳ Generating pairing code for ${phoneNumber}...`);
-        await sessionManager.createNewSession(sessionId, phoneNumber, chatId);
+        await sessionManager.createNewSession(sessionId, phoneNumber, chatId, customPair);
     } catch (error) {
         console.error('Pairing error:', error);
         telegramBot.sendMessage(chatId, '❌ Failed to create pairing session. Please try again.');
@@ -324,7 +367,7 @@ async function initializeWhatsAppConnection(sessionId) {
         const cyan = "\x1b[36m";
         const bold = "\x1b[1m";
         
-        // Auto mark as seen (දැකියි)
+        // Auto mark as seen
         if (config.MARK_AS_SEEN === 'true') {
             try {
                 await conn.sendReadReceipt(mek.key.remoteJid, mek.key.id, [mek.key.participant || mek.key.remoteJid]);
@@ -334,7 +377,7 @@ async function initializeWhatsAppConnection(sessionId) {
             }
         }
 
-        // Auto read messages (කියවීමට ලකුණු කිරීම)
+        // Auto read messages
         if (config.READ_MESSAGE === 'true') {
             try {
                 await conn.readMessages([mek.key]);
