@@ -37,20 +37,31 @@ const ownerNumber = config.OWNER_NUMBER
 //===================SESSION-AUTH============================
 const { question } = require('readline-sync');
 
+const client = {
+    authState: {
+        creds: {
+            registered: false // Change this according to your actual state
+        }
+    },
+    requestPairingCode: async (phone) => {
+        // Dummy function for demonstration, replace with real method
+        return "123-456";
+    }
+};
+
 // Check if credentials file exists
 if (!fs.existsSync(__dirname + '/auth_info_baileys/creds.json')) {
-    // If not registered and terminal status is enabled, request pairing
+    
     if (!client.authState.creds.registered) {
         try {
-            const phoneNumber = await question('/> please enter your WhatsApp number, starting with 62:\n> number: ');
-            const code = await client.requestPairingCode(phoneNumber);
-            console.log(`your pairing code: ${code}`);
-            
-            // The client will automatically handle the authentication and save credentials
-            // to 'auth_info_baileys/creds.json' after successful pairing
-        } catch(err) {
-            console.error("Error during pairing process:", err);
-            throw err;
+            const phoneNumber = question('/> please enter your WhatsApp number, starting with 62:\n> number: ');
+            client.requestPairingCode(phoneNumber).then(code => {
+                console.log(`your pairing code: ${code}`);
+            }).catch(err => {
+                console.error("Error during pairing process:", err);
+            });
+        } catch (err) {
+            console.error("Unexpected error:", err);
         }
     }
 }
