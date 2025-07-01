@@ -22,60 +22,47 @@ const {
     Browsers
 } = require('@whiskeysockets/baileys')
 
-const l = console.log
-const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions')
-const fs = require('fs')
-const P = require('pino')
-const config = require('./config')
-const qrcode = require('qrcode-terminal')
-const util = require('util')
-const { sms, downloadMediaMessage } = require('./lib/msg')
-const axios = require('axios')
-const { File } = require('megajs')
-const prefix = config.PREFIX
-const ownerNumber = config.OWNER_NUMBER
-const readline = require('readline')
-const pino = require('pino')
-const color = require('chalk')
-const randomcolor = require('randomcolor')
+const fs = require('fs');
+const path = require('path');
+const P = require('pino');
+const config = require('./config');
+const { sms, downloadMediaMessage } = require('./lib/msg');
+const axios = require('axios');
+const prefix = config.PREFIX;
+const ownerNumber = config.OWNER_NUMBER;
+const readline = require('readline');
+const express = require("express");
+const app = express();
+const port = process.env.PORT || 8000;
 
-// Question function with colored prompt
+// Simple question function without colors
 const question = (text) => {
     const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout
     });
     return new Promise((resolve) => {
-        rl.question(color(text, randomcolor()), (answer) => {
+        rl.question(text, (answer) => {
             resolve(answer);
             rl.close();
         });
     });
 }
 
-const express = require("express");
-const app = express();
-const port = process.env.PORT || 8000;
-
-async function clientstart() {
+async function startClient() {
     // Initialize store
-    const store = makeInMemoryStore({
-        logger: pino().child({ 
-            level: 'silent',
-            stream: 'store' 
-        })
-    });
+    const store = makeInMemoryStore({ logger: P().child({ level: 'silent', stream: 'store' }) });
 
     // Initialize auth state
-    const { state, saveCreds } = await useMultiFileAuthState(`./${config().session || 'auth_info_baileys'}`)
+    const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, config.session || 'auth_info_baileys'));
     
     // Get latest version
     const { version } = await fetchLatestBaileysVersion();
 
     // Create client connection
     const client = makeWASocket({
-        logger: pino({ level: "silent" }),
-        printQRInTerminal: !config().status.terminal,
+        logger: P({ level: "silent" }),
+        printQRInTerminal: !config.status.terminal,
         auth: state,
         browser: Browsers.macOS("Firefox"),
         syncFullHistory: true,
@@ -83,10 +70,10 @@ async function clientstart() {
     });
 
     // Pairing code logic if not registered
-    if (config().status.terminal && !client.authState.creds.registered) {
-        const phoneNumber = await question('/> please enter your WhatsApp number, starting with 94:\n> number: ');
+    if (config.status.terminal && !client.authState.creds.registered) {
+        const phoneNumber = await question('Please enter your WhatsApp number (94XXXXXXXXX):\n> ');
         const code = await client.requestPairingCode(phoneNumber);
-        console.log(`your pairing code: ${code}`);
+        console.log(`Your pairing code: ${code}`);
         console.log('Please enter this code in your WhatsApp app under Linked Devices');
     }
 
