@@ -1,315 +1,173 @@
-const {
-    default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason,
-    jidNormalizedUser,
-    isJidBroadcast,
-    getContentType,
-    makeInMemoryStore,
-    fetchLatestBaileysVersion,
-    Browsers
-} = require('@whiskeysockets/baileys');
-
+const express = require('express');
+const { Telegraf } = require('telegraf');
+const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const P = require('pino');
-const config = require('./config');
-const { sms } = require('./lib/msg');
-const readline = require('readline');
-const express = require("express");
 
-const app = express();
-const port = process.env.PORT || 8000;
+// Configurations
+const config = require('./config');
 const prefix = config.PREFIX;
 const ownerNumber = config.OWNER_NUMBER;
+const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ";
+const PORT = process.env.PORT || 3000;
 
-// Simple question function
-const question = (text) => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
+// Initialize Express app
+const app = express();
+app.use(express.json());
+
+// Initialize Telegram Bot
+const bot = new Telegraf(TELEGRAM_TOKEN);
+const pairingSessions = new Map();
+
+// WhatsApp Client
+let whatsappClient = null;
+let waSocket = null;
+
+// Serve static files
+app.use(express.static('public'));
+
+// API endpoint to check bot status
+app.get('/api/status', (req, res) => {
+    res.json({
+        status: 'active',
+        services: {
+            whatsapp: waSocket ? 'connected' : 'disconnected',
+            telegram: 'active'
+        }
     });
-    return new Promise((resolve) => {
-        rl.question(text, (answer) => {
-            resolve(answer);
-            rl.close();
+});
+
+// Telegram Pairing Command
+bot.command('pair', async (ctx) => {
+    try {
+        const userId = ctx.from.id;
+        
+        await ctx.reply('🔢 WhatsApp අංකය ඇතුලත් කරන්න (94xxxxxxxx):');
+        
+        bot.on('text', async (msgCtx) => {
+            if (msgCtx.from.id === userId) {
+                const phoneNumber = msgCtx.message.text.trim();
+                
+                if (!/^94\d{9}$/.test(phoneNumber)) {
+                    return msgCtx.reply('❌ අවලංගු අංකයක්! 94 පටන් ගන්නා අංකයක් ඇතුලත් කරන්න (උදා: 94711234567)');
+                }
+                
+                whatsappClient = makeWASocket({
+                    printQRInTerminal: false,
+                    auth: { creds: {}, keys: {} }
+                });
+                
+                try {
+                    const code = await whatsappClient.requestPairingCode(phoneNumber);
+                    
+                    pairingSessions.set(userId, {
+                        phoneNumber,
+                        client: whatsappClient,
+                        timestamp: Date.now()
+                    });
+                    
+                    await msgCtx.replyWithHTML(
+                        `✅ <b>ඔබගේ WhatsApp පේරින් කේතය:</b> <code>${code}</code>\n\n` +
+                        '1. WhatsApp විවෘත කරන්න\n' +
+                        '2. Settings → Linked Devices වෙත යන්න\n' +
+                        '3. "Link a Device" ඔබන්න\n' +
+                        '4. මෙම කේතය ඇතුලත් කරන්න\n\n' +
+                        '⏳ මෙම කේතය විනාඩි 10 ක් පමණ වලංගු වේ.'
+                    );
+                    
+                    setTimeout(() => {
+                        if (pairingSessions.has(userId)) {
+                            whatsappClient.end();
+                            pairingSessions.delete(userId);
+                        }
+                    }, 600000);
+                    
+                } catch (error) {
+                    console.error('Pairing error:', error);
+                    msgCtx.reply('❌ කේතය ජනනය කිරීමේ දෝෂයක්. කරුණාකර පසුව උත්සාහ කරන්න.');
+                    if (whatsappClient) whatsappClient.end();
+                }
+            }
         });
-    });
-}
+    } catch (error) {
+        console.error('Command error:', error);
+        ctx.reply('❌ දෝෂයක් ඇතිවිය. කරුණාකර නැවත උත්සාහ කරන්න.');
+    }
+});
 
-async function startClient() {
-    // Initialize store
-    const store = makeInMemoryStore({ logger: P().child({ level: 'silent', stream: 'store' }) });
-
-    // Initialize auth state
-    const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, config.session || 'auth_info_baileys'));
-    
-    // Get latest version
+// WhatsApp Connection
+async function connectToWhatsApp() {
+    const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, 'auth_info_baileys'));
     const { version } = await fetchLatestBaileysVersion();
 
-    // Create client connection
-    const client = makeWASocket({
-        logger: P({ level: "silent" }),
-        printQRInTerminal: !config.status.terminal,
+    waSocket = makeWASocket({
+        logger: P({ level: 'silent' }),
+        printQRInTerminal: true,
         auth: state,
-        browser: Browsers.macOS("Firefox"),
-        syncFullHistory: true,
+        browser: Browsers.macOS('Safari'),
         version
     });
 
-    // Pairing code logic if not registered
-    if (config.status.terminal && !client.authState.creds.registered) {
-        const phoneNumber = await question('Please enter your WhatsApp number (94XXXXXXXXX):\n> ');
-        const code = await client.requestPairingCode(phoneNumber);
-        console.log(`Your pairing code: ${code}`);
-        console.log('Please enter this code in your WhatsApp app under Linked Devices');
-    }
-
-    // Bind store to client events
-    store.bind(client.ev);
-    
-    // Save credentials when updated
-    client.ev.on('creds.update', saveCreds);
-
-    // Connection update handler
-    client.ev.on('connection.update', (update) => {
+    waSocket.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                setTimeout(() => {
-                    console.log('Reconnecting after disconnect...');
-                    startClient();
-                }, 5000);
+                setTimeout(() => connectToWhatsApp(), 5000);
             }
         } else if (connection === 'open') {
-            console.log('Loading plugins...');
-            fs.readdirSync("./plugins/").forEach((plugin) => {
-                if (path.extname(plugin).toLowerCase() === ".js") {
-                    require("./plugins/" + plugin);
-                }
-            });
-            console.log('Bot connected successfully ✅');
+            console.log('WhatsApp connected successfully');
         }
     });
 
-    // Message handler
-    client.ev.on('messages.upsert', async ({ messages }) => {
-        const mek = messages[0];
-        if (!mek.message) return;
-        mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
+    waSocket.ev.on('creds.update', saveCreds);
 
-        // Console colors
-        const reset = "\x1b[0m";
-        const red = "\x1b[31m";
-        const green = "\x1b[32m";
-        const blue = "\x1b[34m";
-        const cyan = "\x1b[36m";
-        const bold = "\x1b[1m";
+    // Message handling
+    waSocket.ev.on('messages.upsert', async ({ messages }) => {
+        const message = messages[0];
+        if (!message.message) return;
 
-        // Debug log
-        console.log(red + "☰".repeat(32) + reset);
-        console.log(green + bold + "New Message Detected:" + reset);
-        console.log(cyan + JSON.stringify(mek, null, 2) + reset);
-        console.log(red + "☰".repeat(32) + reset);
+        const type = Object.keys(message.message)[0];
+        const from = message.key.remoteJid;
+        const body = type === 'conversation' ? message.message.conversation : 
+                     type === 'extendedTextMessage' ? message.message.extendedTextMessage.text : '';
 
-        // Auto mark as seen
-        if (config.MARK_AS_SEEN === 'true') {
-            try {
-                await client.sendReadReceipt(mek.key.remoteJid, mek.key.id, [mek.key.participant || mek.key.remoteJid]);
-                console.log(green + `Marked message from ${mek.key.remoteJid} as seen.` + reset);
-            } catch (error) {
-                console.error(red + "Error marking message as seen:", error + reset);
-            }
-        }
-
-        // Auto read messages
-        if (config.READ_MESSAGE === 'true') {
-            try {
-                await client.readMessages([mek.key]);
-                console.log(green + `Marked message from ${mek.key.remoteJid} as read.` + reset);
-            } catch (error) {
-                console.error(red + "Error marking message as read:", error + reset);
-            }
-        }
-
-        // Status updates handling
-        if (mek.key && mek.key.remoteJid === 'status@broadcast') {
-            // Auto read Status
-            if (config.AUTO_READ_STATUS === "true") {
-                try {
-                    await client.readMessages([mek.key]);
-                    console.log(green + `Status from ${mek.key.participant || mek.key.remoteJid} marked as read.` + reset);
-                } catch (error) {
-                    console.error(red + "Error reading status:", error + reset);
-                }
-            }
-
-            // Auto react to Status
-            if (config.AUTO_REACT_STATUS === "true") {
-                try {
-                    await client.sendMessage(
-                        mek.key.participant || mek.key.remoteJid,
-                        { react: { text: config.AUTO_REACT_STATUS_EMOJI, key: mek.key } }
-                    );
-                    console.log(green + `Reacted to status from ${mek.key.participant || mek.key.remoteJid}` + reset);
-                } catch (error) {
-                    console.error(red + "Error reacting to status:", error + reset);
-                }
-            }
-            return;
-        }
-
-        const m = sms(client, mek);
-        const type = getContentType(mek.message);
-        const content = JSON.stringify(mek.message);
-        const from = mek.key.remoteJid;
-        const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : [];
-        const body = (type === 'conversation') ? mek.message.conversation : 
-                    (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : 
-                    (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : 
-                    (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : '';
-        
-        const isCmd = body.startsWith(prefix);
-        const budy = typeof mek.text == 'string' ? mek.text : false;
-        const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : '';
-        const args = body.trim().split(/ +/).slice(1);
-        const q = args.join(' ');
-        const text = args.join(' ');
-        const isGroupJid = jid => typeof jid === 'string' && jid.endsWith('@g.us');
-        const isGroup = isGroupJid(from);
-        const sender = mek.key.fromMe ? (client.user.id.split(':')[0]+'@s.whatsapp.net' || client.user.id) : (mek.key.participant || mek.key.remoteJid);
-        const senderNumber = sender.split('@')[0];
-        const botNumber = client.user.id.split(':')[0];
-        const pushname = mek.pushName || 'Sin Nombre';
-        const isMe = botNumber.includes(senderNumber);
-        const isOwner = ownerNumber.includes(senderNumber) || isMe;
-        const botNumber2 = await jidNormalizedUser(client.user.id);
-        const groupMetadata = isGroup ? await client.groupMetadata(from).catch(e => {}) : '';
-        const groupName = isGroup ? groupMetadata.subject : '';
-        const participants = isGroup ? await groupMetadata.participants : '';
-        const groupAdmins = isGroup ? await getGroupAdmins(participants) : '';
-        const isBotAdmins = isGroup ? groupAdmins.includes(botNumber2) : false;
-        const isAdmins = isGroup ? groupAdmins.includes(sender) : false;
-        const isReact = m.message.reactionMessage ? true : false;
-        
-        const reply = (teks) => {
-            client.sendMessage(from, { text: teks }, { quoted: mek });
-        }
-
-        // File URL sender helper
-        client.sendFileUrl = async (jid, url, caption, quoted, options = {}) => {
-            let mime = '';
-            let res = await axios.head(url);
-            mime = res.headers['content-type'];
-            if (mime.split("/")[1] === "gif") {
-                return client.sendMessage(jid, { video: await getBuffer(url), caption: caption, gifPlayback: true, ...options }, { quoted: quoted, ...options });
-            }
-            let type = mime.split("/")[0] + "Message";
-            if (mime === "application/pdf") {
-                return client.sendMessage(jid, { document: await getBuffer(url), mimetype: 'application/pdf', caption: caption, ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "image") {
-                return client.sendMessage(jid, { image: await getBuffer(url), caption: caption, ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "video") {
-                return client.sendMessage(jid, { video: await getBuffer(url), caption: caption, mimetype: 'video/mp4', ...options }, { quoted: quoted, ...options });
-            }
-            if (mime.split("/")[0] === "audio") {
-                return client.sendMessage(jid, { audio: await getBuffer(url), caption: caption, mimetype: 'audio/mpeg', ...options }, { quoted: quoted, ...options });
-            }
-        };
-
-        // Work mode restrictions
-        if (config.MODE === "private" && !isOwner) return;
-        if (config.MODE === "inbox" && isGroup) return;
-        if (config.MODE === "groups" && !isGroup) return;
-
-        // Special user reactions
-        if (senderNumber.includes("94753670175")) {
-            if (isReact) return;
-            m.react("👑");
-        }
-
-        if (senderNumber.includes("94756209082")) {
-            if (isReact) return;
-            m.react("🍆");
-        }
-
-        // Command handling
-        const events = require('./command');
-        const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
-        
-        if (isCmd) {
-            const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || 
-                       events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName));
+        if (body.startsWith(prefix)) {
+            const command = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
             
-            if (cmd) {
-                if (cmd.react) {
-                    client.sendMessage(from, { react: { text: cmd.react, key: mek.key }});
-                }
-
-                try {
-                    cmd.function(client, mek, m, {
-                        from, quoted, body, isCmd, command, args, q, isGroup, 
-                        sender, senderNumber, botNumber2, botNumber, pushname, 
-                        isMe, isOwner, groupMetadata, groupName, participants, 
-                        groupAdmins, isBotAdmins, isAdmins, reply
-                    });
-                } catch (e) {
-                    console.error("[PLUGIN ERROR] " + e);
-                }
+            if (command === 'ping') {
+                await waSocket.sendMessage(from, { text: 'Pong! 🏓' });
             }
         }
-
-        // Event-based commands
-        events.commands.map(async (command) => {
-            if (body && command.on === "body") {
-                command.function(client, mek, m, {
-                    from, l, quoted, body, isCmd, command, args, q, isGroup, 
-                    sender, senderNumber, botNumber2, botNumber, pushname, 
-                    isMe, isOwner, groupMetadata, groupName, participants, 
-                    groupAdmins, isBotAdmins, isAdmins, reply
-                });
-            } else if (mek.q && command.on === "text") {
-                command.function(client, mek, m, {
-                    from, l, quoted, body, isCmd, command, args, q, isGroup, 
-                    sender, senderNumber, botNumber2, botNumber, pushname, 
-                    isMe, isOwner, groupMetadata, groupName, participants, 
-                    groupAdmins, isBotAdmins, isAdmins, reply
-                });
-            } else if (
-                (command.on === "image" || command.on === "photo") &&
-                mek.type === "imageMessage"
-            ) {
-                command.function(client, mek, m, {
-                    from, l, quoted, body, isCmd, command, args, q, isGroup, 
-                    sender, senderNumber, botNumber2, botNumber, pushname, 
-                    isMe, isOwner, groupMetadata, groupName, participants, 
-                    groupAdmins, isBotAdmins, isAdmins, reply
-                });
-            } else if (
-                command.on === "sticker" &&
-                mek.type === "stickerMessage"
-            ) {
-                command.function(client, mek, m, {
-                    from, l, quoted, body, isCmd, command, args, q, isGroup, 
-                    sender, senderNumber, botNumber2, botNumber, pushname, 
-                    isMe, isOwner, groupMetadata, groupName, participants, 
-                    groupAdmins, isBotAdmins, isAdmins, reply
-                });
-            }
-        });
     });
-
-    return client;
 }
 
-// Start HTTP server
-app.get("/", (req, res) => res.send("WhatsApp Bot is running ✅"));
-app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+// Start Express server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    
+    // Start Telegram bot
+    bot.launch().then(() => {
+        console.log('Telegram bot started');
+    });
+    
+    // Start WhatsApp connection
+    connectToWhatsApp().catch(err => {
+        console.error('WhatsApp connection error:', err);
+    });
+});
 
-// Start the client
-startClient().catch(err => {
-    console.error('Failed to start client:', err);
-    process.exit(1);
+// Cleanup
+process.once('SIGINT', () => {
+    pairingSessions.forEach(session => session.client.end());
+    bot.stop('SIGINT');
+    if (waSocket) waSocket.end();
+    process.exit(0);
+});
+
+process.once('SIGTERM', () => {
+    pairingSessions.forEach(session => session.client.end());
+    bot.stop('SIGTERM');
+    if (waSocket) waSocket.end();
+    process.exit(0);
 });
