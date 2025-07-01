@@ -1,167 +1,25 @@
-const express = require('express');
-const { Telegraf } = require('telegraf');
-const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Browsers, DisconnectReason } = require('@whiskeysockets/baileys');
-const fs = require('fs');
-const path = require('path');
-const P = require('pino');
+const express = require('express'); const { Telegraf } = require('telegraf'); const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = require('@whiskeysockets/baileys'); const fs = require('fs'); const path = require('path'); const P = require('pino');
 
-// Configurations
-const config = require('./config');
-const prefix = config.PREFIX || '!';
-const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ";
-const PORT = process.env.PORT || 3000;
+const config = require('./config'); const prefix = config.PREFIX; const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ"; const PORT = process.env.PORT || 3000;
 
-// Initialize Express app
-const app = express();
-app.use(express.json());
+const app = express(); app.use(express.json()); const bot = new Telegraf(TELEGRAM_TOKEN); const activeSessions = new Map();
 
-// Initialize Telegram Bot
-const bot = new Telegraf(TELEGRAM_TOKEN);
-
-// Global WhatsApp Socket Map
-const activeSessions = new Map();
-
-// Serve static files if needed
 app.use(express.static('public'));
 
-// API endpoint to check bot status
-app.get('/api/status', (req, res) => {
-    res.json({
-        status: 'active',
-        services: {
-            telegram: 'active',
-            whatsapp_sessions: Array.from(activeSessions.keys())
-        }
-    });
-});
+app.get('/api/status', (req, res) => { res.json({ status: 'active', services: { whatsapp: activeSessions.size > 0 ? 'connected' : 'disconnected', telegram: 'active' } }); });
 
-// /pair Command with phone number argument
-bot.command('pair', async (ctx) => {
-    const args = ctx.message.text.split(' ');
-    if (args.length !== 2) {
-        return ctx.reply('❌ නිවැරදි භාවිතය:\n/pair 94xxxxxxxxx');
-    }
+bot.command('pair', async (ctx) => { const args = ctx.message.text.split(' '); if (args.length !== 2) { return ctx.reply('❌ නිවැරදි භාවිතය:\n/pair 94xxxxxxxxx'); }
 
-    const phoneNumber = args[1].trim();
-    if (!/^94\d{9}$/.test(phoneNumber)) {
-        return ctx.reply('❌ අවලංගු අංකයක්! 94 පටන් ගන්නා අංකයක් ඇතුලත් කරන්න (උදා: 94711234567)');
-    }
+const phoneNumber = args[1].trim();
+if (!/^94\d{9}$/.test(phoneNumber)) {
+    return ctx.reply('❌ අවලංගු අංකයක්! 94 පටන් ගන්නා අංකයක් ඇතුලත් කරන්න (උදා: 94711234567)');
+}
 
-    ctx.reply('⏳ Pairing සකස් වෙමින් පවතිනවා... කරුණාකර රැදී සිටින්න.');
+ctx.reply('⏳ Pairing සකස් වෙමින් පවතිනවා...');
 
-    try {
-        const sessionFolder = path.join(__dirname, 'sessions', phoneNumber);
-        fs.mkdirSync(sessionFolder, { recursive: true });
-
-        const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
-
-        const sock = makeWASocket({
-            printQRInTerminal: false,
-            auth: state,
-            logger: P({ level: 'silent' }),
-            browser: Browsers.macOS('Safari')
-        });
-
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-
-            if (connection === 'open') {
-                console.log(`${phoneNumber} Connected Successfully`);
-                activeSessions.set(phoneNumber, sock);
-            }
-
-            if (connection === 'close') {
-                console.log(`${phoneNumber} connection closed`);
-                activeSessions.delete(phoneNumber);
-            }
-        });
-
-        sock.ev.on('creds.update', saveCreds);
-
-        // **Wait until socket is connected before requesting Pair Code**
-        sock.waitForConnectionUpdate = (status) => {
-            return new Promise((resolve) => {
-                sock.ev.on('connection.update', (update) => {
-                    if (update.connection === status) {
-                        resolve();
-                    }
-                });
-            });
-        };
-
-        await sock.waitForConnectionUpdate('open');
-
-        const code = await sock.requestPairingCode(phoneNumber);
-
-        await ctx.replyWithHTML(
-            `✅ <b>ඔබගේ WhatsApp Pairing කේතය:</b> <code>${code}</code>\n\n` +
-            '1. WhatsApp විවෘත කරන්න\n' +
-            '2. Settings → Linked Devices වෙත යන්න\n' +
-            '3. "Link a Device" ඔබන්න\n' +
-            '4. මෙම කේතය ඇතුලත් කරන්න\n\n' +
-            '⏳ මෙම කේතය විනාඩි 10 ක් පමණ වලංගු වේ.'
-        );
-
-    } catch (err) {
-        console.error('Pairing error:', err);
-        ctx.reply('❌ Pairing Code ලබා ගැනීමේදී දෝෂයක්. නැවත උත්සාහ කරන්න.');
-    }
-});
-
-        sock.ev.on('creds.update', saveCreds);
-
-        sock.ev.on('connection.update', (update) => {
-            const { connection, lastDisconnect } = update;
-            if (connection === 'close') {
-                if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                    console.log(`Reconnecting ${phoneNumber}...`);
-                    startWhatsApp(phoneNumber);
-                } else {
-                    console.log(`${phoneNumber} logged out.`);
-                    activeSessions.delete(phoneNumber);
-                }
-            } else if (connection === 'open') {
-                console.log(`${phoneNumber} connected successfully.`);
-                activeSessions.set(phoneNumber, sock);
-            }
-        });
-
-        sock.ev.on('messages.upsert', async ({ messages }) => {
-            const message = messages[0];
-            if (!message.message) return;
-
-            const type = Object.keys(message.message)[0];
-            const from = message.key.remoteJid;
-            const body = type === 'conversation' ? message.message.conversation :
-                         type === 'extendedTextMessage' ? message.message.extendedTextMessage.text : '';
-
-            if (body.startsWith(prefix)) {
-                const command = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
-                
-                if (command === 'ping') {
-                    await sock.sendMessage(from, { text: 'Pong! 🏓' });
-                }
-            }
-        });
-
-        // 10 minutes later, disconnect socket if still pairing
-        setTimeout(() => {
-            if (!activeSessions.has(phoneNumber)) {
-                sock.end();
-                console.log(`Temporary session for ${phoneNumber} closed.`);
-            }
-        }, 10 * 60 * 1000);
-
-    } catch (error) {
-        console.error('Pairing error:', error);
-        ctx.reply('❌ කේතය ලබා ගැනීමේ දෝෂයක්. කරුණාකර පසුව උත්සාහ කරන්න.');
-    }
-});
-
-// Start WhatsApp permanently for session
-async function startWhatsApp(phoneNumber) {
+try {
     const sessionFolder = path.join(__dirname, 'sessions', phoneNumber);
-    if (!fs.existsSync(sessionFolder)) return;
+    fs.mkdirSync(sessionFolder, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
 
@@ -172,23 +30,19 @@ async function startWhatsApp(phoneNumber) {
         browser: Browsers.macOS('Safari')
     });
 
-    sock.ev.on('creds.update', saveCreds);
-
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
-        if (connection === 'close') {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                console.log(`Reconnecting ${phoneNumber}...`);
-                startWhatsApp(phoneNumber);
-            } else {
-                console.log(`${phoneNumber} logged out.`);
-                activeSessions.delete(phoneNumber);
-            }
-        } else if (connection === 'open') {
-            console.log(`${phoneNumber} connected successfully.`);
+        if (connection === 'open') {
+            console.log(`${phoneNumber} Connected Successfully`);
             activeSessions.set(phoneNumber, sock);
         }
+        if (connection === 'close') {
+            console.log(`${phoneNumber} connection closed`);
+            activeSessions.delete(phoneNumber);
+        }
     });
+
+    sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const message = messages[0];
@@ -201,28 +55,46 @@ async function startWhatsApp(phoneNumber) {
 
         if (body.startsWith(prefix)) {
             const command = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
-            
+
             if (command === 'ping') {
                 await sock.sendMessage(from, { text: 'Pong! 🏓' });
             }
         }
     });
+
+    sock.waitForConnectionUpdate = (status) => {
+        return new Promise((resolve) => {
+            sock.ev.on('connection.update', (update) => {
+                if (update.connection === status) {
+                    resolve();
+                }
+            });
+        });
+    };
+
+    await sock.waitForConnectionUpdate('open');
+
+    const code = await sock.requestPairingCode(phoneNumber);
+
+    await ctx.replyWithHTML(
+        `✅ <b>ඔබගේ WhatsApp Pairing කේතය:</b> <code>${code}</code>\n\n` +
+        '1. WhatsApp විවෘත කරන්න\n' +
+        '2. Settings → Linked Devices\n' +
+        '3. "Link a Device" ඔබන්න\n' +
+        '4. මෙම කේතය ඇතුලත් කරන්න\n\n' +
+        '⏳ මෙම කේතය විනාඩි 10 ක් වලංගු වේ.'
+    );
+
+} catch (err) {
+    console.error('Pairing error:', err);
+    ctx.reply('❌ Pairing Code ලබා ගැනීමේදී දෝෂයක්. නැවත උත්සාහ කරන්න.');
 }
 
-// Start Express server
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-
-    // Start Telegram bot
-    bot.launch().then(() => {
-        console.log('Telegram bot started successfully');
-    });
-
-    // Reload existing sessions on startup
-    const sessionsDir = path.join(__dirname, 'sessions');
-    if (fs.existsSync(sessionsDir)) {
-        fs.readdirSync(sessionsDir).forEach(folder => {
-            startWhatsApp(folder);
-        });
-    }
 });
+
+app.listen(PORT, () => { console.log(Server running on port ${PORT}); bot.launch().then(() => { console.log('Telegram bot started'); }); });
+
+process.once('SIGINT', () => { activeSessions.forEach(sock => sock.end()); bot.stop('SIGINT'); process.exit(0); });
+
+process.once('SIGTERM', () => { activeSessions.forEach(sock => sock.end()); bot.stop('SIGTERM'); process.exit(0); });
+
