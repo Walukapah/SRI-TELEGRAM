@@ -8,7 +8,7 @@ const P = require('pino');
 // Configurations
 const config = require('./config');
 const prefix = config.PREFIX || '!';
-const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
+const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ";
 const PORT = process.env.PORT || 3000;
 
 // Initialize Express app
