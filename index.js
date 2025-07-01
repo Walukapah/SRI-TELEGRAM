@@ -47,7 +47,7 @@ bot.command('pair', async (ctx) => {
         return ctx.reply('❌ අවලංගු අංකයක්! 94 පටන් ගන්නා අංකයක් ඇතුලත් කරන්න (උදා: 94711234567)');
     }
 
-    ctx.reply('⏳ Pairing Code ලබා ගන්නා අතරතුර, කරුණාකර රැදී සිටින්න...');
+    ctx.reply('⏳ Pairing සකස් වෙමින් පවතිනවා... කරුණාකර රැදී සිටින්න.');
 
     try {
         const sessionFolder = path.join(__dirname, 'sessions', phoneNumber);
@@ -62,6 +62,35 @@ bot.command('pair', async (ctx) => {
             browser: Browsers.macOS('Safari')
         });
 
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
+
+            if (connection === 'open') {
+                console.log(`${phoneNumber} Connected Successfully`);
+                activeSessions.set(phoneNumber, sock);
+            }
+
+            if (connection === 'close') {
+                console.log(`${phoneNumber} connection closed`);
+                activeSessions.delete(phoneNumber);
+            }
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+
+        // **Wait until socket is connected before requesting Pair Code**
+        sock.waitForConnectionUpdate = (status) => {
+            return new Promise((resolve) => {
+                sock.ev.on('connection.update', (update) => {
+                    if (update.connection === status) {
+                        resolve();
+                    }
+                });
+            });
+        };
+
+        await sock.waitForConnectionUpdate('open');
+
         const code = await sock.requestPairingCode(phoneNumber);
 
         await ctx.replyWithHTML(
@@ -72,6 +101,12 @@ bot.command('pair', async (ctx) => {
             '4. මෙම කේතය ඇතුලත් කරන්න\n\n' +
             '⏳ මෙම කේතය විනාඩි 10 ක් පමණ වලංගු වේ.'
         );
+
+    } catch (err) {
+        console.error('Pairing error:', err);
+        ctx.reply('❌ Pairing Code ලබා ගැනීමේදී දෝෂයක්. නැවත උත්සාහ කරන්න.');
+    }
+});
 
         sock.ev.on('creds.update', saveCreds);
 
