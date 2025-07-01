@@ -5,37 +5,25 @@ const {
     jidNormalizedUser,
     isJidBroadcast,
     getContentType,
-    proto,
-    generateWAMessageContent,
-    generateWAMessage,
-    AnyMessageContent,
-    prepareWAMessageMedia,
-    areJidsSameUser,
-    downloadContentFromMessage,
-    MessageRetryMap,
-    generateForwardMessageContent,
-    generateWAMessageFromContent,
-    generateMessageID, 
     makeInMemoryStore,
-    jidDecode,
     fetchLatestBaileysVersion,
     Browsers
-} = require('@whiskeysockets/baileys')
+} = require('@whiskeysockets/baileys');
 
 const fs = require('fs');
 const path = require('path');
 const P = require('pino');
 const config = require('./config');
-const { sms, downloadMediaMessage } = require('./lib/msg');
-const axios = require('axios');
-const prefix = config.PREFIX;
-const ownerNumber = config.OWNER_NUMBER;
+const { sms } = require('./lib/msg');
 const readline = require('readline');
 const express = require("express");
+
 const app = express();
 const port = process.env.PORT || 8000;
+const prefix = config.PREFIX;
+const ownerNumber = config.OWNER_NUMBER;
 
-// Simple question function without colors
+// Simple question function
 const question = (text) => {
     const rl = readline.createInterface({
         input: process.stdin,
@@ -87,36 +75,26 @@ async function startClient() {
     client.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            if (lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut) {
+            if (lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut) {
                 setTimeout(() => {
                     console.log('Reconnecting after disconnect...');
-                    clientstart();
+                    startClient();
                 }, 5000);
             }
         } else if (connection === 'open') {
-            console.log('😼 Installing... ');
-            const path = require('path');
+            console.log('Loading plugins...');
             fs.readdirSync("./plugins/").forEach((plugin) => {
-                if (path.extname(plugin).toLowerCase() == ".js") {
+                if (path.extname(plugin).toLowerCase() === ".js") {
                     require("./plugins/" + plugin);
                 }
             });
-            console.log('Plugins installed successful ✅');
-            console.log('Bot connected to whatsapp ✅');
-            
-            // Send startup message to owner
-            if (ownerNumber) {
-                const up = `Wa-BOT connected successful ✅\n\nPREFIX: ${prefix}`;
-                client.sendMessage(ownerNumber + "@s.whatsapp.net", { 
-                    text: up 
-                }).catch(e => console.log('Failed to send startup message:', e));
-            }
+            console.log('Bot connected successfully ✅');
         }
     });
 
-    // Message handler with all features
-    client.ev.on('messages.upsert', async (mek) => {
-        mek = mek.messages[0];
+    // Message handler
+    client.ev.on('messages.upsert', async ({ messages }) => {
+        const mek = messages[0];
         if (!mek.message) return;
         mek.message = (getContentType(mek.message) === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message;
 
@@ -326,16 +304,12 @@ async function startClient() {
     return client;
 }
 
-app.get("/", (req, res) => {
-    res.send("hey, bot started✅");
-});
-
-app.listen(port, () => console.log(`Server listening on port http://localhost:${port}`));
+// Start HTTP server
+app.get("/", (req, res) => res.send("WhatsApp Bot is running ✅"));
+app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
 
 // Start the client
-setTimeout(() => {
-    clientstart().catch(err => {
-        console.error('Failed to start client:', err);
-        process.exit(1);
-    });
-}, 4000);
+startClient().catch(err => {
+    console.error('Failed to start client:', err);
+    process.exit(1);
+});
