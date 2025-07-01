@@ -39,6 +39,9 @@
     "moment-timezone": "^0.5.45",
     "gtts": "0.2.1",
     "readline-sync": "^1.4.10",
-    "telegraf": "4.16.3"
+    "telegraf": "4.16.3",
+    "chalk": "5.4.1",
+    "": "",
+    "": ""
   }
 }
