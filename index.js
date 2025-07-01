@@ -7,9 +7,8 @@ const P = require('pino');
 
 // Configurations
 const config = require('./config');
-const prefix = config.PREFIX;
-const ownerNumber = config.OWNER_NUMBER;
-const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "7355024353:AAFcH-OAF5l5Fj6-igY4jOtqZ7HtZGRrlYQ";
+const prefix = config.PREFIX || '!';
+const TELEGRAM_TOKEN = config.TELEGRAM_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
 const PORT = process.env.PORT || 3000;
 
 // Initialize Express app
@@ -19,45 +18,51 @@ app.use(express.json());
 // Initialize Telegram Bot
 const bot = new Telegraf(TELEGRAM_TOKEN);
 
-// WhatsApp Socket
-let waSocket = null;
+// Global WhatsApp Socket Map
+const activeSessions = new Map();
 
-// Serve static files
+// Serve static files if needed
 app.use(express.static('public'));
 
-// Status API
+// API endpoint to check bot status
 app.get('/api/status', (req, res) => {
     res.json({
         status: 'active',
         services: {
-            whatsapp: waSocket ? 'connected' : 'disconnected',
-            telegram: 'active'
+            telegram: 'active',
+            whatsapp_sessions: Array.from(activeSessions.keys())
         }
     });
 });
 
-// Telegram Pair Command
+// /pair Command with phone number argument
 bot.command('pair', async (ctx) => {
     const args = ctx.message.text.split(' ');
     if (args.length !== 2) {
-        return ctx.reply('❌ නිවැරදි භාවිතය: /pair 94xxxxxxxxx');
+        return ctx.reply('❌ නිවැරදි භාවිතය:\n/pair 94xxxxxxxxx');
     }
 
     const phoneNumber = args[1].trim();
-
     if (!/^94\d{9}$/.test(phoneNumber)) {
         return ctx.reply('❌ අවලංගු අංකයක්! 94 පටන් ගන්නා අංකයක් ඇතුලත් කරන්න (උදා: 94711234567)');
     }
 
-    ctx.reply('⏳ Pairing Code ලබා ගන්නා අතරතුර...');
+    ctx.reply('⏳ Pairing Code ලබා ගන්නා අතරතුර, කරුණාකර රැදී සිටින්න...');
 
     try {
-        const tempSock = makeWASocket({
+        const sessionFolder = path.join(__dirname, 'sessions', phoneNumber);
+        fs.mkdirSync(sessionFolder, { recursive: true });
+
+        const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+
+        const sock = makeWASocket({
             printQRInTerminal: false,
-            auth: { creds: {}, keys: {} }
+            auth: state,
+            logger: P({ level: 'silent' }),
+            browser: Browsers.macOS('Safari')
         });
 
-        const code = await tempSock.requestPairingCode(phoneNumber);
+        const code = await sock.requestPairingCode(phoneNumber);
 
         await ctx.replyWithHTML(
             `✅ <b>ඔබගේ WhatsApp Pairing කේතය:</b> <code>${code}</code>\n\n` +
@@ -68,83 +73,121 @@ bot.command('pair', async (ctx) => {
             '⏳ මෙම කේතය විනාඩි 10 ක් පමණ වලංගු වේ.'
         );
 
-        // 10 minutesට පස්සේ Temp Socket අයින් වෙනවා
-        setTimeout(() => {
-            tempSock.end();
-        }, 600000);
+        sock.ev.on('creds.update', saveCreds);
 
-    } catch (err) {
-        console.error('Pairing error:', err);
+        sock.ev.on('connection.update', (update) => {
+            const { connection, lastDisconnect } = update;
+            if (connection === 'close') {
+                if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
+                    console.log(`Reconnecting ${phoneNumber}...`);
+                    startWhatsApp(phoneNumber);
+                } else {
+                    console.log(`${phoneNumber} logged out.`);
+                    activeSessions.delete(phoneNumber);
+                }
+            } else if (connection === 'open') {
+                console.log(`${phoneNumber} connected successfully.`);
+                activeSessions.set(phoneNumber, sock);
+            }
+        });
+
+        sock.ev.on('messages.upsert', async ({ messages }) => {
+            const message = messages[0];
+            if (!message.message) return;
+
+            const type = Object.keys(message.message)[0];
+            const from = message.key.remoteJid;
+            const body = type === 'conversation' ? message.message.conversation :
+                         type === 'extendedTextMessage' ? message.message.extendedTextMessage.text : '';
+
+            if (body.startsWith(prefix)) {
+                const command = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
+                
+                if (command === 'ping') {
+                    await sock.sendMessage(from, { text: 'Pong! 🏓' });
+                }
+            }
+        });
+
+        // 10 minutes later, disconnect socket if still pairing
+        setTimeout(() => {
+            if (!activeSessions.has(phoneNumber)) {
+                sock.end();
+                console.log(`Temporary session for ${phoneNumber} closed.`);
+            }
+        }, 10 * 60 * 1000);
+
+    } catch (error) {
+        console.error('Pairing error:', error);
         ctx.reply('❌ කේතය ලබා ගැනීමේ දෝෂයක්. කරුණාකර පසුව උත්සාහ කරන්න.');
     }
 });
 
-// Connect to WhatsApp Permanently
-async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, 'auth_info_baileys'));
-    const { version } = await fetchLatestBaileysVersion();
+// Start WhatsApp permanently for session
+async function startWhatsApp(phoneNumber) {
+    const sessionFolder = path.join(__dirname, 'sessions', phoneNumber);
+    if (!fs.existsSync(sessionFolder)) return;
 
-    waSocket = makeWASocket({
-        logger: P({ level: 'silent' }),
-        printQRInTerminal: false, // QR Terminal එකට එන්නේ නෑ
+    const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+
+    const sock = makeWASocket({
+        printQRInTerminal: false,
         auth: state,
-        browser: Browsers.macOS('Safari'),
-        version
+        logger: P({ level: 'silent' }),
+        browser: Browsers.macOS('Safari')
     });
 
-    waSocket.ev.on('connection.update', (update) => {
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            console.log('WhatsApp disconnected');
             if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                setTimeout(() => connectToWhatsApp(), 5000);
+                console.log(`Reconnecting ${phoneNumber}...`);
+                startWhatsApp(phoneNumber);
+            } else {
+                console.log(`${phoneNumber} logged out.`);
+                activeSessions.delete(phoneNumber);
             }
         } else if (connection === 'open') {
-            console.log('✅ WhatsApp connected successfully');
+            console.log(`${phoneNumber} connected successfully.`);
+            activeSessions.set(phoneNumber, sock);
         }
     });
 
-    waSocket.ev.on('creds.update', saveCreds);
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const message = messages[0];
+        if (!message.message) return;
 
-    // Command Handling
-    waSocket.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
-        if (!msg.message) return;
-
-        const type = Object.keys(msg.message)[0];
-        const from = msg.key.remoteJid;
-        const body = type === 'conversation' ? msg.message.conversation :
-                     type === 'extendedTextMessage' ? msg.message.extendedTextMessage.text : '';
+        const type = Object.keys(message.message)[0];
+        const from = message.key.remoteJid;
+        const body = type === 'conversation' ? message.message.conversation :
+                     type === 'extendedTextMessage' ? message.message.extendedTextMessage.text : '';
 
         if (body.startsWith(prefix)) {
             const command = body.slice(prefix.length).trim().split(' ')[0].toLowerCase();
-
+            
             if (command === 'ping') {
-                await waSocket.sendMessage(from, { text: 'Pong! 🏓' });
+                await sock.sendMessage(from, { text: 'Pong! 🏓' });
             }
         }
     });
 }
 
-// Start Servers
+// Start Express server
 app.listen(PORT, () => {
-    console.log(`🌐 Server running on port ${PORT}`);
-    bot.launch().then(() => console.log('🤖 Telegram Bot Started'));
-});
+    console.log(`Server running on port ${PORT}`);
 
-// Start WhatsApp Connection After Pairing Completed
-// ඔබට අවශ්‍ය නම්, Telegram Bot තුළ වෙනම Command එකක් දාලා WhatsApp Connect කරන්න පුළුවන්
-// connectToWhatsApp(); <-- අවශ්‍ය විට මෙය අක්‍රීය කරන්න
+    // Start Telegram bot
+    bot.launch().then(() => {
+        console.log('Telegram bot started successfully');
+    });
 
-// Cleanup
-process.once('SIGINT', () => {
-    bot.stop('SIGINT');
-    if (waSocket) waSocket.end();
-    process.exit(0);
-});
-
-process.once('SIGTERM', () => {
-    bot.stop('SIGTERM');
-    if (waSocket) waSocket.end();
-    process.exit(0);
+    // Reload existing sessions on startup
+    const sessionsDir = path.join(__dirname, 'sessions');
+    if (fs.existsSync(sessionsDir)) {
+        fs.readdirSync(sessionsDir).forEach(folder => {
+            startWhatsApp(folder);
+        });
+    }
 });
